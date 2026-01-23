@@ -785,8 +785,28 @@ function AddMeal() {
   const { addMeal } = useMeals()
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setImageFile(file)
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(previewUrl)
+  }
+
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview)
+      setImagePreview(null)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -800,7 +820,7 @@ function AddMeal() {
     setError('')
 
     try {
-      await addMeal({ name, note })
+      await addMeal({ name, note, imageFile })
       navigate('/meals')
     } catch (err) {
       console.error('Add meal error:', err)
@@ -815,10 +835,6 @@ function AddMeal() {
         <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
         <h1>Add Meal</h1>
       </div>
-
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        Add a new meal to your family's library.
-      </p>
 
       <form onSubmit={handleSubmit}>
         {error && (
@@ -848,10 +864,63 @@ function AddMeal() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Add a photo (optional)</label>
-          <div className="photo-upload">
-            📷 Tap to add photo (coming soon)
-          </div>
+          <label className="form-label">Photo (optional)</label>
+          {imagePreview ? (
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                style={{ 
+                  width: '100%', 
+                  aspectRatio: '1', 
+                  objectFit: 'cover', 
+                  borderRadius: 12 
+                }} 
+              />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  background: 'rgba(0,0,0,0.6)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'white'
+                }}
+              >
+                <IconX size={18} stroke={2} />
+              </button>
+            </div>
+          ) : (
+            <label style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 32,
+              background: 'var(--surface)',
+              borderRadius: 12,
+              cursor: 'pointer',
+              gap: 8
+            }}>
+              <IconPlus size={32} stroke={1.5} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Add a photo</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                style={{ display: 'none' }}
+              />
+            </label>
+          )}
         </div>
 
         <div className="form-group">
@@ -870,7 +939,7 @@ function AddMeal() {
           disabled={loading}
           style={{ opacity: loading ? 0.7 : 1 }}
         >
-          {loading ? 'Adding...' : 'Add to Library'}
+          {loading ? (imageFile ? 'Uploading...' : 'Adding...') : 'Add to Library'}
         </button>
       </form>
     </div>
