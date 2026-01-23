@@ -101,11 +101,20 @@ function AvatarStack({ memberIds, members, size = 28 }) {
               marginLeft: i > 0 ? -8 : 0,
               border: '2px solid var(--bg)',
               position: 'relative',
-              zIndex: memberIds.length - i
+              zIndex: memberIds.length - i,
+              overflow: 'hidden'
             }}
             title={member.name}
           >
-            {member.avatar}
+            {member.avatarUrl ? (
+              <img 
+                src={member.avatarUrl} 
+                alt={member.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              member.avatar
+            )}
           </div>
         )
       })}
@@ -1059,10 +1068,11 @@ const EMOJI_OPTIONS = [
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
-  const { family, members, currentMember, isAdmin, removeMember, updateAvatar, cleanupOrphanedData } = useFamily()
+  const { family, members, currentMember, isAdmin, removeMember, updateAvatar, uploadAvatarImage, cleanupOrphanedData } = useFamily()
   const [cleaning, setCleaning] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const handleRemoveMember = async (memberId, memberName) => {
     if (!confirm(`Remove ${memberName} from the family?`)) return
@@ -1078,10 +1088,26 @@ function Profile() {
   const handleAvatarChange = async (emoji) => {
     try {
       await updateAvatar(emoji)
-      setShowEmojiPicker(false)
+      setShowAvatarPicker(false)
     } catch (err) {
       console.error('Update avatar error:', err)
       alert(err.message || 'Failed to update avatar')
+    }
+  }
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      await uploadAvatarImage(file)
+      setShowAvatarPicker(false)
+    } catch (err) {
+      console.error('Upload avatar error:', err)
+      alert(err.message || 'Failed to upload image')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -1174,17 +1200,30 @@ function Profile() {
     <div className="screen" style={{ paddingTop: 16 }}>
       <div className="card" style={{ textAlign: 'center' }}>
         <button
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          onClick={() => setShowAvatarPicker(!showAvatarPicker)}
           style={{
             background: 'none',
             border: 'none',
-            fontSize: 64,
             marginBottom: 12,
             cursor: 'pointer',
-            position: 'relative'
+            position: 'relative',
+            padding: 0
           }}
         >
-          {currentMember?.avatar || '👤'}
+          {currentMember?.avatarUrl ? (
+            <img 
+              src={currentMember.avatarUrl} 
+              alt="Avatar"
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                objectFit: 'cover'
+              }}
+            />
+          ) : (
+            <span style={{ fontSize: 64 }}>{currentMember?.avatar || '👤'}</span>
+          )}
           <span style={{
             position: 'absolute',
             bottom: 0,
@@ -1196,36 +1235,71 @@ function Profile() {
           }}>✏️</span>
         </button>
         
-        {showEmojiPicker && (
+        {showAvatarPicker && (
           <div style={{
-            maxHeight: 300,
-            overflowY: 'auto',
             marginBottom: 16,
             padding: 12,
             background: 'var(--bg)',
             borderRadius: 12
           }}>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
-              gap: 4
+            {/* Upload photo option */}
+            <label style={{
+              display: 'block',
+              padding: '12px 16px',
+              background: 'var(--accent)',
+              color: 'white',
+              borderRadius: 8,
+              cursor: uploading ? 'wait' : 'pointer',
+              marginBottom: 12,
+              fontSize: 14,
+              fontWeight: 500
             }}>
-              {EMOJI_OPTIONS.map((emoji, idx) => (
-                <button
-                  key={`${emoji}-${idx}`}
-                  onClick={() => handleAvatarChange(emoji)}
-                  style={{
-                    background: currentMember?.avatar === emoji ? 'var(--accent-soft)' : 'none',
-                    border: 'none',
-                    borderRadius: 8,
-                    fontSize: 24,
-                    padding: 6,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
+              {uploading ? 'Uploading...' : '📷 Upload Photo'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                style={{ display: 'none' }}
+              />
+            </label>
+            
+            <div style={{ 
+              fontSize: 12, 
+              color: 'var(--text-muted)', 
+              marginBottom: 12,
+              textTransform: 'uppercase',
+              letterSpacing: 1
+            }}>
+              Or pick an emoji
+            </div>
+            
+            <div style={{
+              maxHeight: 200,
+              overflowY: 'auto'
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 4
+              }}>
+                {EMOJI_OPTIONS.map((emoji, idx) => (
+                  <button
+                    key={`${emoji}-${idx}`}
+                    onClick={() => handleAvatarChange(emoji)}
+                    style={{
+                      background: currentMember?.avatar === emoji && !currentMember?.avatarUrl ? 'var(--accent-soft)' : 'none',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontSize: 24,
+                      padding: 6,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -1280,7 +1354,15 @@ function Profile() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {members.map(member => (
             <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 32 }}>{member.avatar}</span>
+              {member.avatarUrl ? (
+                <img 
+                  src={member.avatarUrl} 
+                  alt={member.name}
+                  style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                />
+              ) : (
+                <span style={{ fontSize: 32 }}>{member.avatar}</span>
+              )}
               <span style={{ flex: 1 }}>{member.name}</span>
               {member.role === 'admin' && (
                 <span style={{ 

@@ -13,8 +13,34 @@ import {
   arrayRemove,
   collectionGroup
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from '../lib/firebase'
 import { useAuth } from './AuthContext'
+
+// Resize image to max dimensions while maintaining aspect ratio
+async function resizeImage(file, maxSize = 200) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    
+    img.onload = () => {
+      // Calculate new dimensions (square crop from center)
+      const size = Math.min(img.width, img.height)
+      const x = (img.width - size) / 2
+      const y = (img.height - size) / 2
+      
+      canvas.width = maxSize
+      canvas.height = maxSize
+      
+      ctx.drawImage(img, x, y, size, size, 0, 0, maxSize, maxSize)
+      
+      canvas.toBlob(resolve, 'image/jpeg', 0.8)
+    }
+    
+    img.src = URL.createObjectURL(file)
+  })
+}
 
 const FamilyContext = createContext(null)
 
@@ -212,19 +238,46 @@ export function FamilyProvider({ children }) {
     }
   }
 
-  // Update current user's avatar
+  // Update current user's emoji avatar
   const updateAvatar = async (newAvatar) => {
     if (!user) throw new Error('Not authenticated')
 
-    // Update user doc
+    // Update user doc - clear avatarUrl when switching to emoji
     const userRef = doc(db, 'users', user.uid)
-    await updateDoc(userRef, { avatar: newAvatar })
+    await updateDoc(userRef, { avatar: newAvatar, avatarUrl: null })
 
     // Update member doc if in a family
     if (familyId) {
       const memberRef = doc(db, 'families', familyId, 'members', user.uid)
-      await updateDoc(memberRef, { avatar: newAvatar })
+      await updateDoc(memberRef, { avatar: newAvatar, avatarUrl: null })
     }
+  }
+
+  // Upload image avatar
+  const uploadAvatarImage = async (file) => {
+    if (!user) throw new Error('Not authenticated')
+
+    // Resize image to 200x200
+    const resizedBlob = await resizeImage(file, 200)
+    
+    // Upload to Firebase Storage
+    const storageRef = ref(storage, `avatars/${user.uid}`)
+    await uploadBytes(storageRef, resizedBlob, { contentType: 'image/jpeg' })
+    
+    // Get download URL
+    const avatarUrl = await getDownloadURL(storageRef)
+    
+    // Update user doc
+    const userRef = doc(db, 'users', user.uid)
+    await updateDoc(userRef, { avatarUrl })
+
+    // Update member doc if in a family
+    if (familyId) {
+      const memberRef = doc(db, 'families', familyId, 'members', user.uid)
+      await updateDoc(memberRef, { avatarUrl })
+    }
+
+    return avatarUrl
   }
 
   // Clean up orphaned data (admin only) - removes references to members no longer in family
@@ -289,6 +342,7 @@ export function FamilyProvider({ children }) {
     joinFamily,
     removeMember,
     updateAvatar,
+    uploadAvatarImage,
     cleanupOrphanedData,
   }
 
