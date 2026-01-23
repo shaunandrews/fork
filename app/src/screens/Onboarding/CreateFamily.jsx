@@ -12,6 +12,7 @@ export function CreateFamily() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    console.log('Form submitted, familyName:', familyName)
     setError('')
 
     if (!familyName.trim()) {
@@ -20,6 +21,7 @@ export function CreateFamily() {
     }
 
     setLoading(true)
+    console.log('Creating family...')
 
     try {
       await createFamily(familyName.trim())

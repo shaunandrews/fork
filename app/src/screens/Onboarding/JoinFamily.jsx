@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useFamily } from '../../contexts/FamilyContext'
 
@@ -7,16 +7,18 @@ export function JoinFamily() {
   const [inviteCode, setInviteCode] = useState(urlCode || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const hasAutoJoined = useRef(false)
   
-  const { joinFamily } = useFamily()
+  const { joinFamily, hasFamily } = useFamily()
   const navigate = useNavigate()
 
-  // Auto-submit if we have a code from URL
+  // Auto-submit if we have a code from URL (only once)
   useEffect(() => {
-    if (urlCode && urlCode.length === 6) {
+    if (urlCode && urlCode.length === 6 && !hasAutoJoined.current && !hasFamily) {
+      hasAutoJoined.current = true
       handleJoin(urlCode)
     }
-  }, [urlCode])
+  }, [urlCode, hasFamily])
 
   const handleJoin = async (code) => {
     setError('')
@@ -24,12 +26,15 @@ export function JoinFamily() {
 
     try {
       await joinFamily(code)
+      // Clear any pending invite code
+      localStorage.removeItem('pendingInviteCode')
       // Force a page reload to refresh auth state with new familyId
       window.location.href = '/'
     } catch (err) {
       console.error('Join family error:', err)
       setError(err.message || 'Failed to join family')
       setLoading(false)
+      hasAutoJoined.current = false // Allow retry
     }
   }
 

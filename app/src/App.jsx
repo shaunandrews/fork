@@ -626,28 +626,67 @@ function Profile() {
     navigate('/login')
   }
 
+  const getInviteUrl = () => {
+    // Use the actual hostname for the invite link
+    return `${window.location.origin}/join/${family?.inviteCode}`
+  }
+
   const handleCopyInvite = async () => {
-    if (family?.inviteCode) {
-      const inviteUrl = `${window.location.origin}/join/${family.inviteCode}`
-      await navigator.clipboard.writeText(inviteUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+    if (!family?.inviteCode) {
+      alert('No invite code available')
+      return
+    }
+    
+    const inviteUrl = getInviteUrl()
+    
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(inviteUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } else {
+        // Fallback: create a temporary input
+        const input = document.createElement('input')
+        input.value = inviteUrl
+        document.body.appendChild(input)
+        input.select()
+        document.execCommand('copy')
+        document.body.removeChild(input)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+    } catch (err) {
+      console.error('Copy failed:', err)
+      // Last resort: show the URL in an alert so user can copy manually
+      alert(`Copy this link:\n${inviteUrl}`)
     }
   }
 
   const handleShare = async () => {
-    if (family?.inviteCode && navigator.share) {
+    if (!family?.inviteCode) {
+      alert('No invite code available')
+      return
+    }
+
+    const inviteUrl = getInviteUrl()
+    
+    if (navigator.share) {
       try {
         await navigator.share({
           title: `Join ${family.name} on Fork`,
           text: `Join our family on Fork to help plan dinners!`,
-          url: `${window.location.origin}/join/${family.inviteCode}`
+          url: inviteUrl
         })
       } catch (err) {
-        // User cancelled or share failed, fall back to copy
-        handleCopyInvite()
+        // User cancelled share - that's ok
+        if (err.name !== 'AbortError') {
+          console.error('Share failed:', err)
+          handleCopyInvite()
+        }
       }
     } else {
+      // No native share, copy instead
       handleCopyInvite()
     }
   }

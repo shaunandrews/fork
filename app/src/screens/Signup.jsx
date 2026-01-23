@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Signup() {
@@ -11,6 +11,10 @@ export function Signup() {
   
   const { signUp } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Check for pending invite code
+  const pendingInviteCode = location.state?.inviteCode || localStorage.getItem('pendingInviteCode')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -25,7 +29,13 @@ export function Signup() {
 
     try {
       await signUp(email, password, name)
-      navigate('/onboarding', { replace: true })
+      
+      // If there's a pending invite code, go to join flow
+      if (pendingInviteCode) {
+        navigate(`/join/${pendingInviteCode}`, { replace: true })
+      } else {
+        navigate('/onboarding', { replace: true })
+      }
     } catch (err) {
       console.error('Signup error:', err.code, err.message, err)
       if (err.code === 'auth/email-already-in-use') {
@@ -45,9 +55,15 @@ export function Signup() {
   return (
     <div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh', paddingBottom: 0 }}>
       <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🍴</div>
-        <h1 style={{ fontSize: 32, marginBottom: 8 }}>Join Fork</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Create your account</p>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>{pendingInviteCode ? '👨‍👩‍👧‍👦' : '🍴'}</div>
+        <h1 style={{ fontSize: 32, marginBottom: 8 }}>
+          {pendingInviteCode ? 'Join a Family' : 'Join Fork'}
+        </h1>
+        <p style={{ color: 'var(--text-muted)' }}>
+          {pendingInviteCode 
+            ? "Create an account to join your family" 
+            : "Create your account"}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit}>

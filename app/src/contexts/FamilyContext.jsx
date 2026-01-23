@@ -34,7 +34,7 @@ function generateInviteCode() {
 }
 
 export function FamilyProvider({ children }) {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, loading: authLoading } = useAuth()
   const [family, setFamily] = useState(null)
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +43,11 @@ export function FamilyProvider({ children }) {
 
   // Load family and members when familyId changes
   useEffect(() => {
+    // Wait for auth to finish loading first
+    if (authLoading) {
+      return
+    }
+
     if (!familyId) {
       setFamily(null)
       setMembers([])
@@ -77,7 +82,7 @@ export function FamilyProvider({ children }) {
       unsubFamily()
       unsubMembers()
     }
-  }, [familyId])
+  }, [familyId, authLoading])
 
   // Create a new family
   const createFamily = async (familyName) => {

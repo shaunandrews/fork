@@ -24,7 +24,15 @@ export function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login, but save the attempted URL
+    // If this is a join link, save the code and send to signup
+    if (location.pathname.startsWith('/join/')) {
+      const inviteCode = location.pathname.split('/join/')[1]
+      if (inviteCode) {
+        localStorage.setItem('pendingInviteCode', inviteCode)
+      }
+      return <Navigate to="/signup" state={{ from: location, inviteCode }} replace />
+    }
+    // Otherwise go to login
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
