@@ -227,6 +227,57 @@ export function FamilyProvider({ children }) {
     }
   }
 
+  // Clean up orphaned data (admin only) - removes references to members no longer in family
+  const cleanupOrphanedData = async () => {
+    if (!user || !familyId) throw new Error('Not authenticated')
+    if (!isAdmin) throw new Error('Only admins can clean up data')
+
+    // Get current member IDs
+    const memberIds = members.map(m => m.id)
+    let cleaned = { days: 0, votes: 0 }
+
+    // Scan all days
+    const daysRef = collection(db, 'families', familyId, 'days')
+    const daysSnapshot = await getDocs(daysRef)
+
+    for (const dayDoc of daysSnapshot.docs) {
+      const dayData = dayDoc.data()
+
+      // Clear chef if they're no longer a member
+      if (dayData.chefId && !memberIds.includes(dayData.chefId)) {
+        await updateDoc(dayDoc.ref, {
+          chefId: null,
+          chefName: null,
+          decidedMealId: null,
+          decidedMealName: null,
+          decidedAt: null
+        })
+        cleaned.days++
+      }
+
+      // Clean up votes in suggestions
+      const suggestionsRef = collection(dayDoc.ref, 'suggestions')
+      const suggestionsSnapshot = await getDocs(suggestionsRef)
+
+      for (const suggestionDoc of suggestionsSnapshot.docs) {
+        const votes = suggestionDoc.data().votes || []
+        const orphanedVotes = votes.filter(v => !memberIds.includes(v))
+        
+        if (orphanedVotes.length > 0) {
+          // Remove each orphaned vote
+          for (const orphanedId of orphanedVotes) {
+            await updateDoc(suggestionDoc.ref, {
+              votes: arrayRemove(orphanedId)
+            })
+            cleaned.votes++
+          }
+        }
+      }
+    }
+
+    return cleaned
+  }
+
   const value = {
     family,
     members,
@@ -238,6 +289,7 @@ export function FamilyProvider({ children }) {
     joinFamily,
     removeMember,
     updateAvatar,
+    cleanupOrphanedData,
   }
 
   return (

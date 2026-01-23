@@ -944,7 +944,8 @@ const EMOJI_OPTIONS = [
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
-  const { family, members, currentMember, isAdmin, removeMember, updateAvatar } = useFamily()
+  const { family, members, currentMember, isAdmin, removeMember, updateAvatar, cleanupOrphanedData } = useFamily()
+  const [cleaning, setCleaning] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
@@ -972,6 +973,21 @@ function Profile() {
   const handleSignOut = async () => {
     await signOut()
     navigate('/login')
+  }
+
+  const handleCleanup = async () => {
+    if (!confirm('Clean up orphaned data from removed members?')) return
+    
+    setCleaning(true)
+    try {
+      const result = await cleanupOrphanedData()
+      alert(`Cleaned up ${result.days} day(s) and ${result.votes} vote(s)`)
+    } catch (err) {
+      console.error('Cleanup error:', err)
+      alert(err.message || 'Failed to clean up')
+    } finally {
+      setCleaning(false)
+    }
   }
 
   const getInviteUrl = () => {
@@ -1186,6 +1202,23 @@ function Profile() {
           ))}
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="card">
+          <h3 style={{ marginBottom: 12, fontSize: 14, color: 'var(--text-muted)' }}>ADMIN</h3>
+          <button 
+            className="btn btn-secondary"
+            onClick={handleCleanup}
+            disabled={cleaning}
+            style={{ width: '100%' }}
+          >
+            {cleaning ? 'Cleaning...' : 'Clean Up Orphaned Data'}
+          </button>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+            Removes chef assignments and votes from members who are no longer in the family.
+          </p>
+        </div>
+      )}
 
       <button 
         className="btn btn-secondary" 
