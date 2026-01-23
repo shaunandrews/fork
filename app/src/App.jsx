@@ -916,14 +916,12 @@ function Confirm() {
 }
 
 // Profile Screen
-const EMOJI_OPTIONS = ['😀', '😎', '🤓', '🧑‍🍳', '👨', '👩', '👦', '👧', '🧔', '👱', '👴', '👵', '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯']
-
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
   const { family, members, currentMember, isAdmin, removeMember, updateAvatar } = useFamily()
   const [copied, setCopied] = useState(false)
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [editingAvatar, setEditingAvatar] = useState(false)
 
   const handleRemoveMember = async (memberId, memberName) => {
     if (!confirm(`Remove ${memberName} from the family?`)) return
@@ -936,14 +934,20 @@ function Profile() {
     }
   }
 
-  const handleAvatarChange = async (emoji) => {
-    try {
-      await updateAvatar(emoji)
-      setShowEmojiPicker(false)
-    } catch (err) {
-      console.error('Update avatar error:', err)
-      alert(err.message || 'Failed to update avatar')
+  const handleAvatarChange = async (e) => {
+    const value = e.target.value
+    if (value) {
+      const emojis = [...value]
+      const newEmoji = emojis[emojis.length - 1]
+      if (newEmoji) {
+        try {
+          await updateAvatar(newEmoji)
+        } catch (err) {
+          console.error('Update avatar error:', err)
+        }
+      }
     }
+    setEditingAvatar(false)
   }
 
   const handleSignOut = async () => {
@@ -1023,56 +1027,48 @@ function Profile() {
       </div>
 
       <div className="card" style={{ textAlign: 'center' }}>
-        <button
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          style={{
-            background: 'none',
-            border: 'none',
-            fontSize: 64,
-            marginBottom: 12,
-            cursor: 'pointer',
-            position: 'relative'
-          }}
-        >
-          {currentMember?.avatar || '👤'}
-          <span style={{
-            position: 'absolute',
-            bottom: 0,
-            right: -8,
-            fontSize: 16,
-            background: 'var(--surface)',
-            borderRadius: '50%',
-            padding: 4
-          }}>✏️</span>
-        </button>
-        
-        {showEmojiPicker && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: 8,
-            marginBottom: 16,
-            padding: 12,
-            background: 'var(--bg)',
-            borderRadius: 12
-          }}>
-            {EMOJI_OPTIONS.map(emoji => (
-              <button
-                key={emoji}
-                onClick={() => handleAvatarChange(emoji)}
-                style={{
-                  background: currentMember?.avatar === emoji ? 'var(--accent-soft)' : 'none',
-                  border: 'none',
-                  borderRadius: 8,
-                  fontSize: 28,
-                  padding: 8,
-                  cursor: 'pointer'
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
+        {editingAvatar ? (
+          <input
+            type="text"
+            autoFocus
+            defaultValue={currentMember?.avatar || '👤'}
+            onChange={handleAvatarChange}
+            onBlur={() => setEditingAvatar(false)}
+            style={{
+              width: 80,
+              height: 80,
+              background: 'var(--bg)',
+              border: '2px solid var(--accent)',
+              borderRadius: 12,
+              fontSize: 48,
+              textAlign: 'center',
+              marginBottom: 12,
+              caretColor: 'transparent'
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => setEditingAvatar(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: 64,
+              marginBottom: 12,
+              cursor: 'pointer',
+              position: 'relative'
+            }}
+          >
+            {currentMember?.avatar || '👤'}
+            <span style={{
+              position: 'absolute',
+              bottom: 0,
+              right: -8,
+              fontSize: 16,
+              background: 'var(--surface)',
+              borderRadius: '50%',
+              padding: 4
+            }}>✏️</span>
+          </button>
         )}
         
         <h2 style={{ marginBottom: 4 }}>{userProfile?.name || 'User'}</h2>
