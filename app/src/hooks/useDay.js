@@ -97,6 +97,9 @@ export function useDay(date = new Date()) {
     await updateDoc(dayRef, {
       chefId: null,
       chefName: null,
+      decidedMealId: null,
+      decidedMealName: null,
+      decidedAt: null,
       updatedAt: serverTimestamp(),
     })
   }
@@ -176,6 +179,21 @@ export function useDay(date = new Date()) {
     })
   }
 
+  // Undo meal selection (chef only)
+  const undoMealPick = async () => {
+    if (!familyId || !user) throw new Error('Not authenticated')
+    if (day?.chefId !== user.uid) throw new Error('Only the chef can change the meal')
+
+    const dayRef = doc(db, 'families', familyId, 'days', dateString)
+    
+    await updateDoc(dayRef, {
+      decidedMealId: null,
+      decidedMealName: null,
+      decidedAt: null,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   // Computed values
   const isChef = day?.chefId === user?.uid
   const hasChef = !!day?.chefId
@@ -199,6 +217,7 @@ export function useDay(date = new Date()) {
     toggleVote,
     hasVoted,
     pickMeal,
+    undoMealPick,
     // Computed
     isChef,
     hasChef,

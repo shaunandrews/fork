@@ -180,7 +180,8 @@ function Today() {
     isChef,
     hasChef,
     isDecided,
-    chef
+    chef,
+    undoMealPick
   } = useDay()
 
   // Format today's date
@@ -202,6 +203,15 @@ function Today() {
       await unvolunteer()
     } catch (err) {
       console.error('Unvolunteer error:', err)
+      alert(err.message)
+    }
+  }
+
+  const handleChangeMind = async () => {
+    try {
+      await undoMealPick()
+    } catch (err) {
+      console.error('Undo pick error:', err)
       alert(err.message)
     }
   }
@@ -251,6 +261,25 @@ function Today() {
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 16 }}>
             Dinner time! Enjoy your meal.
           </p>
+          {isChef && (
+            <button 
+              onClick={handleChangeMind}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: 'var(--text-muted)', 
+                fontSize: 12, 
+                marginTop: 16,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                display: 'block',
+                width: '100%',
+                textAlign: 'center'
+              }}
+            >
+              Change my mind
+            </button>
+          )}
         </>
       )}
 
