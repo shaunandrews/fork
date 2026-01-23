@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate, Navigate } fr
 import { useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useFamily } from './contexts/FamilyContext'
+import { useMeals } from './hooks/useMeals'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './screens/Login'
 import { Signup } from './screens/Signup'
@@ -321,12 +322,16 @@ function TodayNoChef() {
 
 // Meals Screen
 function Meals() {
-  const { members, currentMember } = useFamily()
+  const { members } = useFamily()
+  const { getMeals, toggleFavorite, isFavorite, loading } = useMeals()
   const [activeFilter, setActiveFilter] = useState('all')
-  const [favorites, setFavorites] = useState({ 1: true, 2: true, 5: true })
 
-  const toggleFavorite = (id) => {
-    setFavorites(f => ({ ...f, [id]: !f[id] }))
+  const filteredMeals = getMeals(activeFilter)
+  
+  // Helper to get member name
+  const getMemberName = (userId) => {
+    const member = members.find(m => m.id === userId)
+    return member?.name || 'Someone'
   }
 
   return (
@@ -361,17 +366,27 @@ function Meals() {
         </button>
       </div>
 
-      {mockMealLibrary
-        .filter(meal => {
-          if (activeFilter === 'favorites') return favorites[meal.id]
-          if (activeFilter === 'mine') return meal.addedBy === currentMember?.id
-          return true
-        })
-        .map(meal => (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Loading meals...
+        </div>
+      ) : filteredMeals.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
+          <p style={{ color: 'var(--text-muted)' }}>
+            {activeFilter === 'all' 
+              ? "No meals yet. Add your first one!"
+              : activeFilter === 'favorites'
+              ? "No favorites yet. Tap ♡ on meals you love."
+              : "You haven't added any meals yet."}
+          </p>
+        </div>
+      ) : (
+        filteredMeals.map(meal => (
           <div key={meal.id} className="meal-card">
             <div className="meal-info">
               <div className="meal-name">{meal.name}</div>
-              <div className="meal-meta">Added by family</div>
+              <div className="meal-meta">Added by {getMemberName(meal.addedBy)}</div>
             </div>
             <Link 
               to="/suggest-meal" 
@@ -384,11 +399,11 @@ function Meals() {
               className="meal-fav"
               onClick={() => toggleFavorite(meal.id)}
             >
-              {favorites[meal.id] ? '❤️' : '🤍'}
+              {isFavorite(meal.id) ? '❤️' : '🤍'}
             </button>
           </div>
         ))
-      }
+      )}
 
       <TabBar />
     </div>
@@ -398,6 +413,7 @@ function Meals() {
 // Suggest Meal Screen
 function SuggestMeal() {
   const navigate = useNavigate()
+  const { meals, loading } = useMeals()
   const [selected, setSelected] = useState(null)
 
   return (
@@ -411,18 +427,30 @@ function SuggestMeal() {
         Pick a meal to suggest, or add a new one.
       </p>
 
-      {mockMealLibrary.slice(4).map(meal => (
-        <div 
-          key={meal.id} 
-          className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
-          onClick={() => setSelected(meal.id)}
-        >
-          <div className="radio-circle" />
-          <div className="meal-info">
-            <div className="meal-name">{meal.name}</div>
-          </div>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Loading meals...
         </div>
-      ))}
+      ) : meals.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+            No meals in your library yet.
+          </p>
+        </div>
+      ) : (
+        meals.map(meal => (
+          <div 
+            key={meal.id} 
+            className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
+            onClick={() => setSelected(meal.id)}
+          >
+            <div className="radio-circle" />
+            <div className="meal-info">
+              <div className="meal-name">{meal.name}</div>
+            </div>
+          </div>
+        ))
+      )}
 
       <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
         <Link to="/add-meal" className="btn btn-secondary">
@@ -446,6 +474,32 @@ function SuggestMeal() {
 // Add Meal Screen
 function AddMeal() {
   const navigate = useNavigate()
+  const { addMeal } = useMeals()
+  const [name, setName] = useState('')
+  const [note, setNote] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!name.trim()) {
+      setError('Please enter a meal name')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      await addMeal({ name, note })
+      navigate('/meals')
+    } catch (err) {
+      console.error('Add meal error:', err)
+      setError(err.message || 'Failed to add meal')
+      setLoading(false)
+    }
+  }
   
   return (
     <div className="screen">
@@ -458,33 +512,59 @@ function AddMeal() {
         Add a new meal to your family's library.
       </p>
 
-      <div className="form-group">
-        <label className="form-label">What's the meal?</label>
-        <input 
-          type="text" 
-          className="form-input" 
-          placeholder="Beef tacos, lasagna, etc."
-        />
-      </div>
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <div style={{ 
+            background: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 20,
+            color: '#ef4444',
+            fontSize: 14
+          }}>
+            {error}
+          </div>
+        )}
 
-      <div className="form-group">
-        <label className="form-label">Add a photo (optional)</label>
-        <div className="photo-upload">
-          📷 Tap to add photo
+        <div className="form-group">
+          <label className="form-label">What's the meal?</label>
+          <input 
+            type="text" 
+            className="form-input" 
+            placeholder="Beef tacos, lasagna, etc."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
         </div>
-      </div>
 
-      <div className="form-group">
-        <label className="form-label">Note (optional)</label>
-        <textarea 
-          className="form-input" 
-          placeholder="The good corn tortillas from Wegmans..."
-        />
-      </div>
+        <div className="form-group">
+          <label className="form-label">Add a photo (optional)</label>
+          <div className="photo-upload">
+            📷 Tap to add photo (coming soon)
+          </div>
+        </div>
 
-      <button className="btn btn-primary" onClick={() => navigate('/meals')}>
-        Add to Library
-      </button>
+        <div className="form-group">
+          <label className="form-label">Note (optional)</label>
+          <textarea 
+            className="form-input" 
+            placeholder="The good corn tortillas from Wegmans..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className="btn btn-primary"
+          disabled={loading}
+          style={{ opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? 'Adding...' : 'Add to Library'}
+        </button>
+      </form>
     </div>
   )
 }
