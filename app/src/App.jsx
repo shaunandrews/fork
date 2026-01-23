@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useFamily } from './contexts/FamilyContext'
 import { useMeals } from './hooks/useMeals'
+import { useDay } from './hooks/useDay'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './screens/Login'
 import { Signup } from './screens/Signup'
@@ -165,68 +166,57 @@ const mockMealLibrary = [
 ]
 
 // Today Screen - Decided
-function TodayDecided() {
-  const { family } = useFamily()
-  
-  return (
-    <div className="screen">
-      <div className="header">
-        <h1>Fork</h1>
-        <Link to="/profile" className="header-btn">👤</Link>
-      </div>
-      
-      <div className="date-label">
-        <div className="day">Thursday</div>
-        <div className="date">January 23</div>
-      </div>
+// Today Screen - Unified component that shows appropriate state
+function Today() {
+  const { members } = useFamily()
+  const { 
+    day, 
+    suggestions, 
+    loading,
+    volunteerAsChef,
+    toggleVote,
+    hasVoted,
+    isChef,
+    hasChef,
+    isDecided,
+    chef
+  } = useDay()
 
-      <div className="card card-hero">
-        <div className="emoji">🍝</div>
-        <h2>Spaghetti & Meatballs</h2>
-        <p>Demo Chef is cooking</p>
-      </div>
+  // Format today's date
+  const today = new Date()
+  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' })
+  const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
-      <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 16 }}>
-        Dinner at 6:00 PM
-      </p>
-
-      <div style={{ marginTop: 24, display: 'flex', gap: 8 }}>
-        <Link to="/today-undecided" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: Undecided
-        </Link>
-        <Link to="/today-no-chef" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: No Chef
-        </Link>
-      </div>
-      
-      <TabBar />
-    </div>
-  )
-}
-
-// Today Screen - Undecided
-function TodayUndecided() {
-  const { members, currentMember } = useFamily()
-  const [suggestions, setSuggestions] = useState([
-    { id: 1, name: 'Tacos', suggestedBy: members[0]?.id, votedBy: members.slice(0, 2).map(m => m.id) },
-    { id: 2, name: 'Spaghetti', suggestedBy: members[0]?.id, votedBy: [members[0]?.id].filter(Boolean) },
-  ])
-
-  const toggleVote = (mealId) => {
-    if (!currentMember) return
-    setSuggestions(prev => prev.map(meal => {
-      if (meal.id !== mealId) return meal
-      const hasVoted = meal.votedBy.includes(currentMember.id)
-      return {
-        ...meal,
-        votedBy: hasVoted 
-          ? meal.votedBy.filter(id => id !== currentMember.id)
-          : [...meal.votedBy, currentMember.id]
-      }
-    }))
+  const handleVolunteer = async () => {
+    try {
+      await volunteerAsChef()
+    } catch (err) {
+      console.error('Volunteer error:', err)
+      alert(err.message)
+    }
   }
 
-  const sortedSuggestions = [...suggestions].sort((a, b) => b.votedBy.length - a.votedBy.length)
+  const handleVote = async (suggestionId) => {
+    try {
+      await toggleVote(suggestionId)
+    } catch (err) {
+      console.error('Vote error:', err)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="screen">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+            <div>Loading...</div>
+          </div>
+        </div>
+        <TabBar />
+      </div>
+    )
+  }
 
   return (
     <div className="screen">
@@ -236,88 +226,114 @@ function TodayUndecided() {
       </div>
       
       <div className="date-label">
-        <div className="day">Thursday</div>
-        <div className="date">January 23</div>
+        <div className="day">{dayName}</div>
+        <div className="date">{dateStr}</div>
       </div>
 
-      <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>🍴</div>
-        <h2 style={{ fontSize: 18, marginBottom: 4 }}>What's for dinner?</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Vote for your pick</p>
-      </div>
+      {/* STATE: Decided - meal has been picked */}
+      {isDecided && (
+        <>
+          <div className="card card-hero">
+            <div className="emoji">🍽️</div>
+            <h2>{day.decidedMealName}</h2>
+            <p>{chef?.name || 'Someone'} is cooking</p>
+          </div>
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 16 }}>
+            Dinner time! Enjoy your meal.
+          </p>
+        </>
+      )}
 
-      <div style={{ marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Suggestions</h3>
-          <Link to="/suggest-meal" style={{ color: 'var(--accent)', fontSize: 14, textDecoration: 'none' }}>+ Suggest</Link>
-        </div>
+      {/* STATE: No Chef - need someone to volunteer */}
+      {!isDecided && !hasChef && (
+        <>
+          <div className="card card-hero">
+            <div className="emoji">👨‍🍳</div>
+            <h2>No chef tonight</h2>
+            <p>Who's cooking?</p>
+          </div>
+          <button 
+            className="btn btn-primary" 
+            style={{ marginTop: 16 }}
+            onClick={handleVolunteer}
+          >
+            I'll cook
+          </button>
+        </>
+      )}
 
-        {sortedSuggestions.map(meal => {
-          const hasVoted = currentMember && meal.votedBy.includes(currentMember.id)
-          const suggester = getMemberFromList(members, meal.suggestedBy)
-          return (
-            <div key={meal.id} className="meal-card" style={{ flexWrap: 'wrap' }}>
-              <VoteButton voted={hasVoted} onToggle={() => toggleVote(meal.id)} />
-              <div className="meal-info" style={{ flex: 1, minWidth: 120 }}>
-                <div className="meal-name">{meal.name}</div>
-                <div className="meal-meta">{suggester.name} suggested</div>
-              </div>
-              <AvatarStack memberIds={meal.votedBy} members={members} />
+      {/* STATE: Undecided - have chef, waiting for meal pick */}
+      {!isDecided && hasChef && (
+        <>
+          <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🍴</div>
+            <h2 style={{ fontSize: 18, marginBottom: 4 }}>What's for dinner?</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+              {chef?.name || 'Someone'} is cooking · {isChef ? 'Pick when ready!' : 'Vote for your pick'}
+            </p>
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 14, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                Suggestions {suggestions.length > 0 && `(${suggestions.length})`}
+              </h3>
+              <Link to="/suggest-meal" style={{ color: 'var(--accent)', fontSize: 14, textDecoration: 'none' }}>+ Suggest</Link>
             </div>
-          )
-        })}
-      </div>
 
-      <div style={{ marginTop: 24, display: 'flex', gap: 8 }}>
-        <Link to="/" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: Decided
-        </Link>
-        <Link to="/today-no-chef" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: No Chef
-        </Link>
-      </div>
+            {suggestions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)' }}>
+                <p>No suggestions yet.</p>
+                <Link to="/suggest-meal" className="btn btn-secondary btn-small" style={{ marginTop: 12 }}>
+                  Be the first!
+                </Link>
+              </div>
+            ) : (
+              suggestions.map(suggestion => {
+                const voted = hasVoted(suggestion.id)
+                return (
+                  <div key={suggestion.id} className="meal-card" style={{ flexWrap: 'wrap' }}>
+                    <VoteButton voted={voted} onToggle={() => handleVote(suggestion.id)} />
+                    <div className="meal-info" style={{ flex: 1, minWidth: 120 }}>
+                      <div className="meal-name">{suggestion.mealName}</div>
+                      <div className="meal-meta">{suggestion.suggestedByName} suggested</div>
+                    </div>
+                    <AvatarStack memberIds={suggestion.votes || []} members={members} />
+                  </div>
+                )
+              })
+            )}
+
+            {/* Chef can pick meal */}
+            {isChef && suggestions.length > 0 && (
+              <Link 
+                to="/pick-meal" 
+                className="btn btn-primary"
+                style={{ marginTop: 16 }}
+              >
+                Pick Tonight's Meal
+              </Link>
+            )}
+          </div>
+        </>
+      )}
       
       <TabBar />
     </div>
   )
 }
 
-// Today Screen - No Chef
+// Legacy routes redirect to unified Today
+function TodayDecided() {
+  return <Navigate to="/" replace />
+}
+
+function TodayUndecided() {
+  return <Navigate to="/" replace />
+}
+
 function TodayNoChef() {
-  return (
-    <div className="screen">
-      <div className="header">
-        <h1>Fork</h1>
-        <Link to="/profile" className="header-btn">👤</Link>
-      </div>
-      
-      <div className="date-label">
-        <div className="day">Thursday</div>
-        <div className="date">January 23</div>
-      </div>
-
-      <div className="card card-hero">
-        <div className="emoji">👨‍🍳</div>
-        <h2>No chef tonight</h2>
-        <p>Who's cooking?</p>
-      </div>
-
-      <button className="btn btn-primary" style={{ marginTop: 16 }}>
-        I'll cook
-      </button>
-
-      <div style={{ marginTop: 24, display: 'flex', gap: 8 }}>
-        <Link to="/" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: Decided
-        </Link>
-        <Link to="/today-undecided" className="btn btn-secondary" style={{ flex: 1, fontSize: 14 }}>
-          View: Undecided
-        </Link>
-      </div>
-      
-      <TabBar />
-    </div>
-  )
+  return <Navigate to="/" replace />
 }
 
 // Meals Screen
@@ -413,8 +429,34 @@ function Meals() {
 // Suggest Meal Screen
 function SuggestMeal() {
   const navigate = useNavigate()
-  const { meals, loading } = useMeals()
+  const { meals, loading: mealsLoading } = useMeals()
+  const { suggestions, suggestMeal } = useDay()
   const [selected, setSelected] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  // Filter out meals already suggested
+  const alreadySuggestedIds = suggestions.map(s => s.mealId)
+  const availableMeals = meals.filter(m => !alreadySuggestedIds.includes(m.id))
+
+  const handleSuggest = async () => {
+    if (!selected) return
+    
+    const meal = meals.find(m => m.id === selected)
+    if (!meal) return
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      await suggestMeal(meal)
+      navigate('/')
+    } catch (err) {
+      console.error('Suggest error:', err)
+      setError(err.message || 'Failed to suggest meal')
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="screen">
@@ -427,18 +469,34 @@ function SuggestMeal() {
         Pick a meal to suggest, or add a new one.
       </p>
 
-      {loading ? (
+      {error && (
+        <div style={{ 
+          background: 'rgba(239, 68, 68, 0.1)', 
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: 12,
+          padding: 12,
+          marginBottom: 20,
+          color: '#ef4444',
+          fontSize: 14
+        }}>
+          {error}
+        </div>
+      )}
+
+      {mealsLoading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
           Loading meals...
         </div>
-      ) : meals.length === 0 ? (
+      ) : availableMeals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
-            No meals in your library yet.
+            {meals.length === 0 
+              ? "No meals in your library yet."
+              : "All meals have been suggested already!"}
           </p>
         </div>
       ) : (
-        meals.map(meal => (
+        availableMeals.map(meal => (
           <div 
             key={meal.id} 
             className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
@@ -461,10 +519,11 @@ function SuggestMeal() {
       <div style={{ marginTop: 24 }}>
         <button 
           className={`btn ${selected ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ opacity: selected ? 1 : 0.5 }}
-          onClick={() => selected && navigate('/today-undecided')}
+          style={{ opacity: selected && !submitting ? 1 : 0.5 }}
+          onClick={handleSuggest}
+          disabled={!selected || submitting}
         >
-          Suggest This
+          {submitting ? 'Suggesting...' : 'Suggest This'}
         </button>
       </div>
     </div>
@@ -628,13 +687,36 @@ function Week() {
 function PickMeal() {
   const navigate = useNavigate()
   const { members } = useFamily()
+  const { suggestions, pickMeal, isChef, loading } = useDay()
   const [selected, setSelected] = useState(null)
-  
-  const suggestions = [
-    { id: 1, name: 'Tacos', suggestedBy: members[0]?.id, votedBy: members.slice(0, 2).map(m => m.id) },
-    { id: 2, name: 'Spaghetti', suggestedBy: members[0]?.id, votedBy: [members[0]?.id].filter(Boolean) },
-    { id: 3, name: 'Mac & Cheese', suggestedBy: members[0]?.id, votedBy: [] },
-  ]
+  const [submitting, setSubmitting] = useState(false)
+
+  // Redirect if not chef
+  if (!loading && !isChef) {
+    return <Navigate to="/" replace />
+  }
+
+  const handlePick = async () => {
+    if (!selected) return
+    
+    const suggestion = suggestions.find(s => s.id === selected)
+    if (!suggestion) return
+
+    setSubmitting(true)
+
+    try {
+      await pickMeal(suggestion)
+      navigate('/confirm')
+    } catch (err) {
+      console.error('Pick meal error:', err)
+      alert(err.message || 'Failed to pick meal')
+      setSubmitting(false)
+    }
+  }
+
+  // Format today
+  const today = new Date()
+  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' })
 
   return (
     <div className="screen">
@@ -644,33 +726,44 @@ function PickMeal() {
       </div>
 
       <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        You're cooking Thursday. What's it gonna be?
+        You're cooking {dayName}. What's it gonna be?
       </p>
 
-      {suggestions.map(meal => (
-        <div 
-          key={meal.id} 
-          className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
-          onClick={() => setSelected(meal.id)}
-          style={{ flexWrap: 'wrap', gap: 12 }}
-        >
-          <div className="radio-circle" />
-          <div className="meal-info" style={{ flex: 1, minWidth: 100 }}>
-            <div className="meal-name">{meal.name}</div>
-            <div className="meal-meta">{getMemberFromList(members, meal.suggestedBy).name} suggested</div>
-          </div>
-          <AvatarStack memberIds={meal.votedBy} members={members} size={24} />
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Loading...
         </div>
-      ))}
+      ) : suggestions.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <p style={{ color: 'var(--text-muted)' }}>No suggestions yet. Wait for your family to suggest meals!</p>
+        </div>
+      ) : (
+        suggestions.map(suggestion => (
+          <div 
+            key={suggestion.id} 
+            className={`radio-card ${selected === suggestion.id ? 'selected' : ''}`}
+            onClick={() => setSelected(suggestion.id)}
+            style={{ flexWrap: 'wrap', gap: 12 }}
+          >
+            <div className="radio-circle" />
+            <div className="meal-info" style={{ flex: 1, minWidth: 100 }}>
+              <div className="meal-name">{suggestion.mealName}</div>
+              <div className="meal-meta">{suggestion.suggestedByName} suggested</div>
+            </div>
+            <AvatarStack memberIds={suggestion.votes || []} members={members} size={24} />
+          </div>
+        ))
+      )}
 
       <div style={{ marginTop: 24 }}>
-        <Link 
-          to="/confirm" 
+        <button 
+          onClick={handlePick}
+          disabled={!selected || submitting}
           className={`btn ${selected ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ opacity: selected ? 1 : 0.5 }}
+          style={{ opacity: selected && !submitting ? 1 : 0.5 }}
         >
-          Pick This One
-        </Link>
+          {submitting ? 'Picking...' : 'Pick This One'}
+        </button>
       </div>
     </div>
   )
@@ -679,12 +772,13 @@ function PickMeal() {
 // Confirm Screen
 function Confirm() {
   const navigate = useNavigate()
+  const { day } = useDay()
   
   return (
     <div className="screen">
       <div className="celebration">
         <div className="emoji">🎉</div>
-        <h2>Tacos it is!</h2>
+        <h2>{day?.decidedMealName || 'Dinner'} it is!</h2>
         <p>Your family has been notified.</p>
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Done
@@ -903,21 +997,7 @@ function App() {
         <Route path="/" element={
           <ProtectedRoute>
             <RequireFamily>
-              <TodayDecided />
-            </RequireFamily>
-          </ProtectedRoute>
-        } />
-        <Route path="/today-undecided" element={
-          <ProtectedRoute>
-            <RequireFamily>
-              <TodayUndecided />
-            </RequireFamily>
-          </ProtectedRoute>
-        } />
-        <Route path="/today-no-chef" element={
-          <ProtectedRoute>
-            <RequireFamily>
-              <TodayNoChef />
+              <Today />
             </RequireFamily>
           </ProtectedRoute>
         } />
