@@ -168,7 +168,8 @@ const mockMealLibrary = [
 // Today Screen - Decided
 // Today Screen - Unified component that shows appropriate state
 function Today() {
-  const { members } = useFamily()
+  const { user } = useAuth()
+  const { members, isAdmin } = useFamily()
   const [selectedDate, setSelectedDate] = useState(new Date())
   
   const { 
@@ -179,11 +180,14 @@ function Today() {
     unvolunteer,
     toggleVote,
     hasVoted,
+    removeSuggestion,
     isChef,
     hasChef,
     isDecided,
     chef,
-    undoMealPick
+    undoMealPick,
+    adminResetChef,
+    adminResetMeal
   } = useDay(selectedDate)
 
   // Check if selected date is today
@@ -243,6 +247,35 @@ function Today() {
       await toggleVote(suggestionId)
     } catch (err) {
       console.error('Vote error:', err)
+    }
+  }
+
+  const handleAdminResetChef = async () => {
+    if (!confirm('Reset chef assignment for this day? This will also clear any meal selection.')) return
+    try {
+      await adminResetChef()
+    } catch (err) {
+      console.error('Admin reset chef error:', err)
+      alert(err.message)
+    }
+  }
+
+  const handleAdminResetMeal = async () => {
+    if (!confirm('Reset the meal selection? The chef will need to pick again.')) return
+    try {
+      await adminResetMeal()
+    } catch (err) {
+      console.error('Admin reset meal error:', err)
+      alert(err.message)
+    }
+  }
+
+  const handleRemoveSuggestion = async (suggestionId) => {
+    try {
+      await removeSuggestion(suggestionId)
+    } catch (err) {
+      console.error('Remove suggestion error:', err)
+      alert(err.message)
     }
   }
 
@@ -352,6 +385,42 @@ function Today() {
               Change my mind
             </button>
           )}
+          {/* Admin controls - only show if admin and not the chef (chef has their own controls) */}
+          {isAdmin && !isChef && (
+            <div style={{ 
+              display: 'flex', 
+              gap: 16, 
+              justifyContent: 'center', 
+              marginTop: 16 
+            }}>
+              <button 
+                onClick={handleAdminResetMeal}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--text-muted)', 
+                  fontSize: 12, 
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Reset meal
+              </button>
+              <button 
+                onClick={handleAdminResetChef}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--text-muted)', 
+                  fontSize: 12, 
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Reset chef
+              </button>
+            </div>
+          )}
         </>
       )}
 
@@ -398,6 +467,23 @@ function Today() {
                 Actually, I can't cook tonight
               </button>
             )}
+            {/* Admin can reset chef if they're not the chef themselves */}
+            {isAdmin && !isChef && (
+              <button 
+                onClick={handleAdminResetChef}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--text-muted)', 
+                  fontSize: 12, 
+                  marginTop: 8,
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Reset chef
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 20 }}>
@@ -418,12 +504,31 @@ function Today() {
             ) : (
               suggestions.map(suggestion => {
                 const voted = hasVoted(suggestion.id)
+                const isMySuggestion = suggestion.suggestedBy === user?.uid
                 return (
                   <div key={suggestion.id} className="meal-card" style={{ flexWrap: 'wrap' }}>
                     <VoteButton voted={voted} onToggle={() => handleVote(suggestion.id)} />
                     <div className="meal-info" style={{ flex: 1, minWidth: 120 }}>
                       <div className="meal-name">{suggestion.mealName}</div>
-                      <div className="meal-meta">{suggestion.suggestedByName} suggested</div>
+                      <div className="meal-meta">
+                        {isMySuggestion ? 'You suggested' : `${suggestion.suggestedByName} suggested`}
+                        {isMySuggestion && (
+                          <button
+                            onClick={() => handleRemoveSuggestion(suggestion.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              marginLeft: 8,
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            remove
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <AvatarStack memberIds={suggestion.votes || []} members={members} />
                   </div>

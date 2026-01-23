@@ -11,7 +11,8 @@ import {
   arrayRemove,
   serverTimestamp,
   query,
-  orderBy
+  orderBy,
+  getDocs
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useFamily } from '../contexts/FamilyContext'
@@ -194,6 +195,39 @@ export function useDay(date = new Date()) {
     })
   }
 
+  // Admin: Reset the chef assignment (and meal) for the day
+  const adminResetChef = async () => {
+    if (!familyId || !user) throw new Error('Not authenticated')
+    if (currentMember?.role !== 'admin') throw new Error('Only admins can reset the chef')
+
+    const dayRef = doc(db, 'families', familyId, 'days', dateString)
+    
+    await updateDoc(dayRef, {
+      chefId: null,
+      chefName: null,
+      decidedMealId: null,
+      decidedMealName: null,
+      decidedAt: null,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  // Admin: Reset just the meal selection (keep chef)
+  const adminResetMeal = async () => {
+    if (!familyId || !user) throw new Error('Not authenticated')
+    if (currentMember?.role !== 'admin') throw new Error('Only admins can reset the meal')
+    if (!day?.decidedMealId) throw new Error('No meal to reset')
+
+    const dayRef = doc(db, 'families', familyId, 'days', dateString)
+    
+    await updateDoc(dayRef, {
+      decidedMealId: null,
+      decidedMealName: null,
+      decidedAt: null,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   // Computed values
   const isChef = day?.chefId === user?.uid
   const hasChef = !!day?.chefId
@@ -218,6 +252,9 @@ export function useDay(date = new Date()) {
     hasVoted,
     pickMeal,
     undoMealPick,
+    // Admin actions
+    adminResetChef,
+    adminResetMeal,
     // Computed
     isChef,
     hasChef,
