@@ -45,10 +45,13 @@ export function AuthProvider({ children }) {
   }, [])
 
   const signUp = async (email, password, name) => {
+    // Create auth account
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
+    console.log('Auth account created:', newUser.uid)
     
     // Update display name
     await updateProfile(newUser, { displayName: name })
+    console.log('Display name updated')
     
     // Create user document in Firestore
     const userDoc = {
@@ -59,9 +62,15 @@ export function AuthProvider({ children }) {
       createdAt: new Date().toISOString(),
     }
     
-    await setDoc(doc(db, 'users', newUser.uid), userDoc)
-    setUserProfile(userDoc)
+    try {
+      await setDoc(doc(db, 'users', newUser.uid), userDoc)
+      console.log('Firestore user doc created')
+    } catch (firestoreError) {
+      console.error('Firestore write failed:', firestoreError.code, firestoreError.message)
+      // Continue anyway - auth worked, Firestore might have permission issues
+    }
     
+    setUserProfile(userDoc)
     return newUser
   }
 

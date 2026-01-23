@@ -27,7 +27,7 @@ export function Signup() {
       await signUp(email, password, name)
       navigate('/onboarding', { replace: true })
     } catch (err) {
-      console.error(err)
+      console.error('Signup error:', err.code, err.message, err)
       if (err.code === 'auth/email-already-in-use') {
         setError('An account with this email already exists')
       } else if (err.code === 'auth/invalid-email') {
@@ -35,7 +35,7 @@ export function Signup() {
       } else if (err.code === 'auth/weak-password') {
         setError('Password is too weak')
       } else {
-        setError('Failed to create account. Please try again.')
+        setError(`Error: ${err.code || err.message || 'Unknown error'}`)
       }
     } finally {
       setLoading(false)
