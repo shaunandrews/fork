@@ -145,11 +145,12 @@ body {
   background: var(--surface);
   border-radius: 12px;
   margin-bottom: 8px;
-  cursor: pointer;
 }
 
-.meal-card:hover {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .meal-card:hover {
+    background: var(--surface-hover);
+  }
 }
 
 .meal-info {

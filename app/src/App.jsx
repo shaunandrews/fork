@@ -658,13 +658,6 @@ function Meals() {
               <div className="meal-name">{meal.name}</div>
               <div className="meal-meta">Added by {getMemberName(meal.addedBy)}</div>
             </div>
-            <Link 
-              to="/suggest-meal" 
-              className="btn btn-secondary btn-small"
-              style={{ fontSize: 12, padding: '8px 12px' }}
-            >
-              Suggest
-            </Link>
             <button 
               className="meal-fav"
               onClick={() => toggleFavorite(meal.id)}
