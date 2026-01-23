@@ -916,11 +916,14 @@ function Confirm() {
 }
 
 // Profile Screen
+const EMOJI_OPTIONS = ['😀', '😎', '🤓', '🧑‍🍳', '👨', '👩', '👦', '👧', '🧔', '👱', '👴', '👵', '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯']
+
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
-  const { family, members, currentMember, isAdmin, removeMember } = useFamily()
+  const { family, members, currentMember, isAdmin, removeMember, updateAvatar } = useFamily()
   const [copied, setCopied] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   const handleRemoveMember = async (memberId, memberName) => {
     if (!confirm(`Remove ${memberName} from the family?`)) return
@@ -930,6 +933,16 @@ function Profile() {
     } catch (err) {
       console.error('Remove member error:', err)
       alert(err.message || 'Failed to remove member')
+    }
+  }
+
+  const handleAvatarChange = async (emoji) => {
+    try {
+      await updateAvatar(emoji)
+      setShowEmojiPicker(false)
+    } catch (err) {
+      console.error('Update avatar error:', err)
+      alert(err.message || 'Failed to update avatar')
     }
   }
 
@@ -1010,7 +1023,58 @@ function Profile() {
       </div>
 
       <div className="card" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{currentMember?.avatar || '👤'}</div>
+        <button
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          style={{
+            background: 'none',
+            border: 'none',
+            fontSize: 64,
+            marginBottom: 12,
+            cursor: 'pointer',
+            position: 'relative'
+          }}
+        >
+          {currentMember?.avatar || '👤'}
+          <span style={{
+            position: 'absolute',
+            bottom: 0,
+            right: -8,
+            fontSize: 16,
+            background: 'var(--surface)',
+            borderRadius: '50%',
+            padding: 4
+          }}>✏️</span>
+        </button>
+        
+        {showEmojiPicker && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: 8,
+            marginBottom: 16,
+            padding: 12,
+            background: 'var(--bg)',
+            borderRadius: 12
+          }}>
+            {EMOJI_OPTIONS.map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => handleAvatarChange(emoji)}
+                style={{
+                  background: currentMember?.avatar === emoji ? 'var(--accent-soft)' : 'none',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 28,
+                  padding: 8,
+                  cursor: 'pointer'
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+        
         <h2 style={{ marginBottom: 4 }}>{userProfile?.name || 'User'}</h2>
         <p style={{ color: 'var(--text-muted)' }}>{family?.name || 'No family'}</p>
       </div>

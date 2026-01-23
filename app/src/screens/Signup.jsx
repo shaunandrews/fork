@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
+const EMOJI_OPTIONS = ['😀', '😎', '🤓', '🧑‍🍳', '👨', '👩', '👦', '👧', '🧔', '👱', '👴', '👵', '🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯']
+
 export function Signup() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [avatar, setAvatar] = useState('😀')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
@@ -28,7 +32,7 @@ export function Signup() {
     setLoading(true)
 
     try {
-      await signUp(email, password, name)
+      await signUp(email, password, name, avatar)
       
       // If there's a pending invite code, go to join flow
       if (pendingInviteCode) {
@@ -92,6 +96,58 @@ export function Signup() {
             required
             autoComplete="name"
           />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Pick your avatar</label>
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            style={{
+              width: '100%',
+              padding: 16,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              fontSize: 48,
+              cursor: 'pointer',
+              textAlign: 'center'
+            }}
+          >
+            {avatar}
+          </button>
+          {showEmojiPicker && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 8,
+              marginTop: 12,
+              padding: 12,
+              background: 'var(--surface)',
+              borderRadius: 12
+            }}>
+              {EMOJI_OPTIONS.map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setAvatar(emoji)
+                    setShowEmojiPicker(false)
+                  }}
+                  style={{
+                    background: avatar === emoji ? 'var(--accent-soft)' : 'none',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 28,
+                    padding: 8,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="form-group">

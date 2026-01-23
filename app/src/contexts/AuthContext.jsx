@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
     return unsubscribe
   }, [])
 
-  const signUp = async (email, password, name) => {
+  const signUp = async (email, password, name, avatar = '👤') => {
     // Create auth account
     const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password)
     console.log('Auth account created:', newUser.uid)
@@ -60,7 +60,7 @@ export function AuthProvider({ children }) {
     const userDoc = {
       email: newUser.email,
       name: name,
-      avatar: '👤',
+      avatar: avatar,
       familyId: null,
       createdAt: new Date().toISOString(),
     }

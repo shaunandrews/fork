@@ -179,6 +179,21 @@ export function FamilyProvider({ children }) {
     }
   }
 
+  // Update current user's avatar
+  const updateAvatar = async (newAvatar) => {
+    if (!user) throw new Error('Not authenticated')
+
+    // Update user doc
+    const userRef = doc(db, 'users', user.uid)
+    await updateDoc(userRef, { avatar: newAvatar })
+
+    // Update member doc if in a family
+    if (familyId) {
+      const memberRef = doc(db, 'families', familyId, 'members', user.uid)
+      await updateDoc(memberRef, { avatar: newAvatar })
+    }
+  }
+
   const value = {
     family,
     members,
@@ -189,6 +204,7 @@ export function FamilyProvider({ children }) {
     createFamily,
     joinFamily,
     removeMember,
+    updateAvatar,
   }
 
   return (
