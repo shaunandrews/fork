@@ -145,9 +145,9 @@ function TabBar() {
         <span className="tab-icon">📋</span>
         Meals
       </NavLink>
-      <NavLink to="/week" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
-        <span className="tab-icon">📅</span>
-        Week
+      <NavLink to="/profile" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
+        <span className="tab-icon">👤</span>
+        Family
       </NavLink>
     </nav>
   )
@@ -169,6 +169,8 @@ const mockMealLibrary = [
 // Today Screen - Unified component that shows appropriate state
 function Today() {
   const { members } = useFamily()
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  
   const { 
     day, 
     suggestions, 
@@ -182,12 +184,32 @@ function Today() {
     isDecided,
     chef,
     undoMealPick
-  } = useDay()
+  } = useDay(selectedDate)
 
-  // Format today's date
+  // Check if selected date is today
   const today = new Date()
-  const dayName = today.toLocaleDateString('en-US', { weekday: 'long' })
-  const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+  const isToday = selectedDate.toDateString() === today.toDateString()
+  
+  // Format selected date
+  const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' })
+  const dateStr = selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+
+  // Navigate days
+  const goToPreviousDay = () => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(newDate.getDate() - 1)
+    setSelectedDate(newDate)
+  }
+
+  const goToNextDay = () => {
+    const newDate = new Date(selectedDate)
+    newDate.setDate(newDate.getDate() + 1)
+    setSelectedDate(newDate)
+  }
+
+  const goToToday = () => {
+    setSelectedDate(new Date())
+  }
 
   const handleVolunteer = async () => {
     try {
@@ -242,13 +264,63 @@ function Today() {
     <div className="screen">
       <div className="header">
         <h1>Fork</h1>
-        <Link to="/profile" className="header-btn">👤</Link>
       </div>
       
-      <div className="date-label">
-        <div className="day">{dayName}</div>
-        <div className="date">{dateStr}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+        <button 
+          onClick={goToPreviousDay}
+          style={{ 
+            background: 'var(--surface)', 
+            border: 'none', 
+            borderRadius: '50%',
+            width: 40,
+            height: 40,
+            fontSize: 18,
+            cursor: 'pointer',
+            color: 'var(--text)'
+          }}
+        >
+          ←
+        </button>
+        <div className="date-label" style={{ margin: 0 }}>
+          <div className="day">{isToday ? 'Today' : dayName}</div>
+          <div className="date">{dateStr}</div>
+        </div>
+        <button 
+          onClick={goToNextDay}
+          style={{ 
+            background: 'var(--surface)', 
+            border: 'none', 
+            borderRadius: '50%',
+            width: 40,
+            height: 40,
+            fontSize: 18,
+            cursor: 'pointer',
+            color: 'var(--text)'
+          }}
+        >
+          →
+        </button>
       </div>
+      
+      {!isToday && (
+        <button 
+          onClick={goToToday}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--accent)',
+            fontSize: 14,
+            cursor: 'pointer',
+            marginBottom: 16,
+            display: 'block',
+            width: '100%',
+            textAlign: 'center'
+          }}
+        >
+          ← Back to Today
+        </button>
+      )}
 
       {/* STATE: Decided - meal has been picked */}
       {isDecided && (
