@@ -6,7 +6,7 @@ import {
   signOut as firebaseSignOut,
   updateProfile
 } from 'firebase/auth'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 
 const AuthContext = createContext(null)
@@ -29,16 +29,19 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       
       if (firebaseUser) {
-        // Fetch user profile from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data())
-        }
+        // Listen to user profile from Firestore (real-time updates for familyId changes)
+        const userRef = doc(db, 'users', firebaseUser.uid)
+        const unsubProfile = onSnapshot(userRef, (doc) => {
+          if (doc.exists()) {
+            setUserProfile(doc.data())
+          }
+          setLoading(false)
+        })
+        return unsubProfile
       } else {
         setUserProfile(null)
+        setLoading(false)
       }
-      
-      setLoading(false)
     })
 
     return unsubscribe

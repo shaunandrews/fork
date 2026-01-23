@@ -1,85 +1,111 @@
-import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate, Navigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
+import { useFamily } from './contexts/FamilyContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Login } from './screens/Login'
 import { Signup } from './screens/Signup'
+import { OnboardingChoice } from './screens/Onboarding/Choice'
+import { CreateFamily } from './screens/Onboarding/CreateFamily'
+import { JoinFamily } from './screens/Onboarding/JoinFamily'
 import './index.css'
 
-// Family members (will come from Firestore later)
-const family = [
-  { id: 'shaun', name: 'Shaun', avatar: '👨' },
-  { id: 'amy', name: 'Amy', avatar: '👩' },
-  { id: 'mason', name: 'Mason', avatar: '👦' },
-  { id: 'emma', name: 'Emma', avatar: '👧' },
-  { id: 'olivia', name: 'Olivia', avatar: '👧' },
-]
+// RequireFamily - redirects to onboarding if no family
+function RequireFamily({ children }) {
+  const { hasFamily, loading } = useFamily()
+  
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text-muted)'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+          <div>Loading...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  if (!hasFamily) {
+    return <Navigate to="/onboarding" replace />
+  }
+  
+  return children
+}
 
-const currentUser = family[0] // Shaun
+// RequireNoFamily - redirects to app if already has family (for onboarding)
+function RequireNoFamily({ children }) {
+  const { hasFamily, loading } = useFamily()
+  
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text-muted)'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+          <div>Loading...</div>
+        </div>
+      </div>
+    )
+  }
+  
+  if (hasFamily) {
+    return <Navigate to="/" replace />
+  }
+  
+  return children
+}
 
-// Mock data - Meal library (no votes here)
-const mealLibrary = [
-  { id: 1, name: 'Tacos', addedBy: 'amy' },
-  { id: 2, name: 'Spaghetti & Meatballs', addedBy: 'shaun' },
-  { id: 3, name: 'Mac & Cheese', addedBy: 'mason' },
-  { id: 4, name: 'Chicken Stir Fry', addedBy: 'amy' },
-  { id: 5, name: 'Grilled Cheese & Soup', addedBy: 'shaun' },
-  { id: 6, name: 'Pizza (homemade)', addedBy: 'mason' },
-  { id: 7, name: 'Burgers', addedBy: 'shaun' },
-  { id: 8, name: 'Chicken Parm', addedBy: 'amy' },
-]
-
-// Tonight's suggestions (with who voted)
-const initialSuggestions = [
-  { id: 1, name: 'Tacos', suggestedBy: 'amy', votedBy: ['amy', 'mason', 'emma'] },
-  { id: 2, name: 'Spaghetti & Meatballs', suggestedBy: 'shaun', votedBy: ['shaun', 'olivia'] },
-  { id: 3, name: 'Mac & Cheese', suggestedBy: 'mason', votedBy: ['mason'] },
-  { id: 4, name: 'Chicken Stir Fry', suggestedBy: 'amy', votedBy: [] },
-]
-
-const weekData = [
-  { day: 'Mon', date: 20, chef: 'Amy', meal: 'Tacos' },
-  { day: 'Tue', date: 21, chef: 'Shaun', meal: 'Spaghetti' },
-  { day: 'Wed', date: 22, chef: 'Amy', meal: 'Stir Fry' },
-  { day: 'Thu', date: 23, chef: 'Amy', meal: null, isToday: true },
-  { day: 'Fri', date: 24, chef: null, meal: null },
-  { day: 'Sat', date: 25, chef: 'Shaun', meal: null },
-  { day: 'Sun', date: 26, chef: null, meal: null },
-]
-
-// Helper to get family member by id
-const getMember = (id) => family.find(m => m.id === id) || family[0]
+// Helper to get family member by id (uses context members)
+const getMemberFromList = (members, id) => {
+  return members.find(m => m.id === id) || { name: 'Unknown', avatar: '👤' }
+}
 
 // Avatar Stack Component
-function AvatarStack({ memberIds, size = 28 }) {
-  if (memberIds.length === 0) {
+function AvatarStack({ memberIds, members, size = 28 }) {
+  if (!memberIds || memberIds.length === 0) {
     return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No votes yet</span>
   }
   
   return (
     <div style={{ display: 'flex', marginLeft: 8 }}>
-      {memberIds.map((id, i) => (
-        <div 
-          key={id} 
-          style={{ 
-            width: size, 
-            height: size, 
-            borderRadius: '50%', 
-            background: 'var(--surface-hover)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            fontSize: size * 0.6,
-            marginLeft: i > 0 ? -8 : 0,
-            border: '2px solid var(--bg)',
-            position: 'relative',
-            zIndex: memberIds.length - i
-          }}
-          title={getMember(id).name}
-        >
-          {getMember(id).avatar}
-        </div>
-      ))}
+      {memberIds.map((id, i) => {
+        const member = getMemberFromList(members, id)
+        return (
+          <div 
+            key={id} 
+            style={{ 
+              width: size, 
+              height: size, 
+              borderRadius: '50%', 
+              background: 'var(--surface-hover)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontSize: size * 0.6,
+              marginLeft: i > 0 ? -8 : 0,
+              border: '2px solid var(--bg)',
+              position: 'relative',
+              zIndex: memberIds.length - i
+            }}
+            title={member.name}
+          >
+            {member.avatar}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -125,8 +151,22 @@ function TabBar() {
   )
 }
 
+// Mock data for prototype screens (will be replaced with Firestore in Phase 3-4)
+const mockMealLibrary = [
+  { id: 1, name: 'Tacos', addedBy: 'member1' },
+  { id: 2, name: 'Spaghetti & Meatballs', addedBy: 'member2' },
+  { id: 3, name: 'Mac & Cheese', addedBy: 'member1' },
+  { id: 4, name: 'Chicken Stir Fry', addedBy: 'member2' },
+  { id: 5, name: 'Grilled Cheese & Soup', addedBy: 'member1' },
+  { id: 6, name: 'Pizza (homemade)', addedBy: 'member1' },
+  { id: 7, name: 'Burgers', addedBy: 'member2' },
+  { id: 8, name: 'Chicken Parm', addedBy: 'member2' },
+]
+
 // Today Screen - Decided
 function TodayDecided() {
+  const { family } = useFamily()
+  
   return (
     <div className="screen">
       <div className="header">
@@ -142,7 +182,7 @@ function TodayDecided() {
       <div className="card card-hero">
         <div className="emoji">🍝</div>
         <h2>Spaghetti & Meatballs</h2>
-        <p>Amy is cooking</p>
+        <p>Demo Chef is cooking</p>
       </div>
 
       <p style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 16 }}>
@@ -163,25 +203,28 @@ function TodayDecided() {
   )
 }
 
-// Today Screen - Undecided (shows tonight's suggestions with voting)
+// Today Screen - Undecided
 function TodayUndecided() {
-  const [suggestions, setSuggestions] = useState(initialSuggestions)
+  const { members, currentMember } = useFamily()
+  const [suggestions, setSuggestions] = useState([
+    { id: 1, name: 'Tacos', suggestedBy: members[0]?.id, votedBy: members.slice(0, 2).map(m => m.id) },
+    { id: 2, name: 'Spaghetti', suggestedBy: members[0]?.id, votedBy: [members[0]?.id].filter(Boolean) },
+  ])
 
   const toggleVote = (mealId) => {
+    if (!currentMember) return
     setSuggestions(prev => prev.map(meal => {
       if (meal.id !== mealId) return meal
-      
-      const hasVoted = meal.votedBy.includes(currentUser.id)
+      const hasVoted = meal.votedBy.includes(currentMember.id)
       return {
         ...meal,
         votedBy: hasVoted 
-          ? meal.votedBy.filter(id => id !== currentUser.id)
-          : [...meal.votedBy, currentUser.id]
+          ? meal.votedBy.filter(id => id !== currentMember.id)
+          : [...meal.votedBy, currentMember.id]
       }
     }))
   }
 
-  // Sort by vote count
   const sortedSuggestions = [...suggestions].sort((a, b) => b.votedBy.length - a.votedBy.length)
 
   return (
@@ -199,7 +242,7 @@ function TodayUndecided() {
       <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
         <div style={{ fontSize: 32, marginBottom: 8 }}>🍴</div>
         <h2 style={{ fontSize: 18, marginBottom: 4 }}>What's for dinner?</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Amy is cooking · Vote for your pick</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Vote for your pick</p>
       </div>
 
       <div style={{ marginTop: 20 }}>
@@ -209,15 +252,16 @@ function TodayUndecided() {
         </div>
 
         {sortedSuggestions.map(meal => {
-          const hasVoted = meal.votedBy.includes(currentUser.id)
+          const hasVoted = currentMember && meal.votedBy.includes(currentMember.id)
+          const suggester = getMemberFromList(members, meal.suggestedBy)
           return (
             <div key={meal.id} className="meal-card" style={{ flexWrap: 'wrap' }}>
               <VoteButton voted={hasVoted} onToggle={() => toggleVote(meal.id)} />
               <div className="meal-info" style={{ flex: 1, minWidth: 120 }}>
                 <div className="meal-name">{meal.name}</div>
-                <div className="meal-meta">{getMember(meal.suggestedBy).name} suggested</div>
+                <div className="meal-meta">{suggester.name} suggested</div>
               </div>
-              <AvatarStack memberIds={meal.votedBy} />
+              <AvatarStack memberIds={meal.votedBy} members={members} />
             </div>
           )
         })}
@@ -275,8 +319,9 @@ function TodayNoChef() {
   )
 }
 
-// Meals Screen - Library (no voting, just browse/favorite)
+// Meals Screen
 function Meals() {
+  const { members, currentMember } = useFamily()
   const [activeFilter, setActiveFilter] = useState('all')
   const [favorites, setFavorites] = useState({ 1: true, 2: true, 5: true })
 
@@ -292,7 +337,7 @@ function Meals() {
       </div>
 
       <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>
-        Your family's meal ideas. Suggest one for tonight from here.
+        Your family's meal ideas. Suggest one for tonight.
       </p>
 
       <div className="filters">
@@ -316,17 +361,17 @@ function Meals() {
         </button>
       </div>
 
-      {mealLibrary
+      {mockMealLibrary
         .filter(meal => {
           if (activeFilter === 'favorites') return favorites[meal.id]
-          if (activeFilter === 'mine') return meal.addedBy === currentUser.id
+          if (activeFilter === 'mine') return meal.addedBy === currentMember?.id
           return true
         })
         .map(meal => (
           <div key={meal.id} className="meal-card">
             <div className="meal-info">
               <div className="meal-name">{meal.name}</div>
-              <div className="meal-meta">Added by {getMember(meal.addedBy).name}</div>
+              <div className="meal-meta">Added by family</div>
             </div>
             <Link 
               to="/suggest-meal" 
@@ -350,14 +395,10 @@ function Meals() {
   )
 }
 
-// Suggest Meal Screen - Pick from library to suggest for tonight
+// Suggest Meal Screen
 function SuggestMeal() {
   const navigate = useNavigate()
   const [selected, setSelected] = useState(null)
-
-  // Filter out meals already suggested for tonight
-  const alreadySuggested = initialSuggestions.map(m => m.id)
-  const availableMeals = mealLibrary.filter(m => !alreadySuggested.includes(m.id))
 
   return (
     <div className="screen">
@@ -370,7 +411,7 @@ function SuggestMeal() {
         Pick a meal to suggest, or add a new one.
       </p>
 
-      {availableMeals.map(meal => (
+      {mockMealLibrary.slice(4).map(meal => (
         <div 
           key={meal.id} 
           className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
@@ -402,7 +443,7 @@ function SuggestMeal() {
   )
 }
 
-// Add Meal Screen - Add to library
+// Add Meal Screen
 function AddMeal() {
   const navigate = useNavigate()
   
@@ -450,6 +491,18 @@ function AddMeal() {
 
 // Week Screen
 function Week() {
+  const { members } = useFamily()
+  
+  const weekData = [
+    { day: 'Mon', date: 20, chef: members[0]?.name || 'Chef', meal: 'Tacos' },
+    { day: 'Tue', date: 21, chef: members[0]?.name || 'Chef', meal: 'Spaghetti' },
+    { day: 'Wed', date: 22, chef: members[0]?.name || 'Chef', meal: 'Stir Fry' },
+    { day: 'Thu', date: 23, chef: members[0]?.name || 'Chef', meal: null, isToday: true },
+    { day: 'Fri', date: 24, chef: null, meal: null },
+    { day: 'Sat', date: 25, chef: members[0]?.name || 'Chef', meal: null },
+    { day: 'Sun', date: 26, chef: null, meal: null },
+  ]
+
   return (
     <div className="screen">
       <div className="header">
@@ -491,13 +544,17 @@ function Week() {
   )
 }
 
-// Pick Meal Screen (Chef view)
+// Pick Meal Screen
 function PickMeal() {
   const navigate = useNavigate()
+  const { members } = useFamily()
   const [selected, setSelected] = useState(null)
   
-  // Sort by votes
-  const sortedSuggestions = [...initialSuggestions].sort((a, b) => b.votedBy.length - a.votedBy.length)
+  const suggestions = [
+    { id: 1, name: 'Tacos', suggestedBy: members[0]?.id, votedBy: members.slice(0, 2).map(m => m.id) },
+    { id: 2, name: 'Spaghetti', suggestedBy: members[0]?.id, votedBy: [members[0]?.id].filter(Boolean) },
+    { id: 3, name: 'Mac & Cheese', suggestedBy: members[0]?.id, votedBy: [] },
+  ]
 
   return (
     <div className="screen">
@@ -510,7 +567,7 @@ function PickMeal() {
         You're cooking Thursday. What's it gonna be?
       </p>
 
-      {sortedSuggestions.map(meal => (
+      {suggestions.map(meal => (
         <div 
           key={meal.id} 
           className={`radio-card ${selected === meal.id ? 'selected' : ''}`}
@@ -520,9 +577,9 @@ function PickMeal() {
           <div className="radio-circle" />
           <div className="meal-info" style={{ flex: 1, minWidth: 100 }}>
             <div className="meal-name">{meal.name}</div>
-            <div className="meal-meta">{getMember(meal.suggestedBy).name} suggested</div>
+            <div className="meal-meta">{getMemberFromList(members, meal.suggestedBy).name} suggested</div>
           </div>
-          <AvatarStack memberIds={meal.votedBy} size={24} />
+          <AvatarStack memberIds={meal.votedBy} members={members} size={24} />
         </div>
       ))}
 
@@ -561,10 +618,38 @@ function Confirm() {
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
+  const { family, members, currentMember } = useFamily()
+  const [copied, setCopied] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/login')
+  }
+
+  const handleCopyInvite = async () => {
+    if (family?.inviteCode) {
+      const inviteUrl = `${window.location.origin}/join/${family.inviteCode}`
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleShare = async () => {
+    if (family?.inviteCode && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${family.name} on Fork`,
+          text: `Join our family on Fork to help plan dinners!`,
+          url: `${window.location.origin}/join/${family.inviteCode}`
+        })
+      } catch (err) {
+        // User cancelled or share failed, fall back to copy
+        handleCopyInvite()
+      }
+    } else {
+      handleCopyInvite()
+    }
   }
   
   return (
@@ -575,44 +660,75 @@ function Profile() {
       </div>
 
       <div className="card" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 64, marginBottom: 12 }}>{userProfile?.avatar || currentUser.avatar}</div>
-        <h2 style={{ marginBottom: 4 }}>{userProfile?.name || currentUser.name}</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Andrews Family</p>
+        <div style={{ fontSize: 64, marginBottom: 12 }}>{currentMember?.avatar || '👤'}</div>
+        <h2 style={{ marginBottom: 4 }}>{userProfile?.name || 'User'}</h2>
+        <p style={{ color: 'var(--text-muted)' }}>{family?.name || 'No family'}</p>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 16, fontSize: 14, color: 'var(--text-muted)' }}>YOUR STATS</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 600 }}>12</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Meals added</div>
+      {family && (
+        <div className="card">
+          <h3 style={{ marginBottom: 12, fontSize: 14, color: 'var(--text-muted)' }}>INVITE CODE</h3>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            background: 'var(--bg)',
+            padding: 16,
+            borderRadius: 12,
+            marginBottom: 12
+          }}>
+            <span style={{ 
+              fontSize: 24, 
+              fontWeight: 600, 
+              letterSpacing: 4,
+              fontFamily: 'monospace'
+            }}>
+              {family.inviteCode}
+            </span>
+            <button 
+              onClick={handleCopyInvite}
+              style={{
+                background: 'var(--accent-soft)',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 12px',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+                fontSize: 14
+              }}
+            >
+              {copied ? '✓ Copied' : 'Copy'}
+            </button>
           </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 600 }}>8</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Nights cooked</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 600 }}>5</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Favorites</div>
-          </div>
+          <button className="btn btn-secondary" onClick={handleShare}>
+            Share Invite Link
+          </button>
         </div>
-      </div>
+      )}
 
       <div className="card">
-        <h3 style={{ marginBottom: 16, fontSize: 14, color: 'var(--text-muted)' }}>FAMILY</h3>
+        <h3 style={{ marginBottom: 16, fontSize: 14, color: 'var(--text-muted)' }}>FAMILY MEMBERS</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {family.filter(m => m.id !== currentUser.id).map(member => (
+          {members.map(member => (
             <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 32 }}>{member.avatar}</span>
               <span>{member.name}</span>
+              {member.role === 'admin' && (
+                <span style={{ 
+                  fontSize: 10, 
+                  background: 'var(--accent-soft)', 
+                  color: 'var(--accent)',
+                  padding: '2px 8px',
+                  borderRadius: 10
+                }}>Admin</span>
+              )}
+              {member.id === currentMember?.id && (
+                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>(you)</span>
+              )}
             </div>
           ))}
         </div>
       </div>
-
-      <button className="btn btn-secondary" style={{ marginTop: 8 }}>
-        Invite Family Member
-      </button>
 
       <button 
         className="btn btn-secondary" 
@@ -621,29 +737,6 @@ function Profile() {
       >
         Sign Out
       </button>
-    </div>
-  )
-}
-
-// Onboarding placeholder (will build in Phase 2)
-function Onboarding() {
-  const { userProfile } = useAuth()
-  
-  return (
-    <div className="screen" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '100vh', paddingBottom: 0 }}>
-      <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>👋</div>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>Welcome, {userProfile?.name || 'there'}!</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Let's get your family set up.</p>
-      </div>
-
-      <Link to="/" className="btn btn-primary">
-        Continue to App (Demo)
-      </Link>
-      
-      <p style={{ textAlign: 'center', marginTop: 16, color: 'var(--text-muted)', fontSize: 14 }}>
-        Family creation/join coming in Phase 2
-      </p>
     </div>
   )
 }
@@ -657,60 +750,105 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         
-        {/* Protected routes */}
-        <Route path="/onboarding" element={
+        {/* Join link (public-ish, but needs auth) */}
+        <Route path="/join/:code" element={
           <ProtectedRoute>
-            <Onboarding />
+            <JoinFamily />
           </ProtectedRoute>
         } />
+        
+        {/* Onboarding (needs auth, but no family) */}
+        <Route path="/onboarding" element={
+          <ProtectedRoute>
+            <RequireNoFamily>
+              <OnboardingChoice />
+            </RequireNoFamily>
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding/create" element={
+          <ProtectedRoute>
+            <RequireNoFamily>
+              <CreateFamily />
+            </RequireNoFamily>
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding/join" element={
+          <ProtectedRoute>
+            <RequireNoFamily>
+              <JoinFamily />
+            </RequireNoFamily>
+          </ProtectedRoute>
+        } />
+        
+        {/* Main app (needs auth + family) */}
         <Route path="/" element={
           <ProtectedRoute>
-            <TodayDecided />
+            <RequireFamily>
+              <TodayDecided />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/today-undecided" element={
           <ProtectedRoute>
-            <TodayUndecided />
+            <RequireFamily>
+              <TodayUndecided />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/today-no-chef" element={
           <ProtectedRoute>
-            <TodayNoChef />
+            <RequireFamily>
+              <TodayNoChef />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/meals" element={
           <ProtectedRoute>
-            <Meals />
+            <RequireFamily>
+              <Meals />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/suggest-meal" element={
           <ProtectedRoute>
-            <SuggestMeal />
+            <RequireFamily>
+              <SuggestMeal />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/add-meal" element={
           <ProtectedRoute>
-            <AddMeal />
+            <RequireFamily>
+              <AddMeal />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/week" element={
           <ProtectedRoute>
-            <Week />
+            <RequireFamily>
+              <Week />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/pick-meal" element={
           <ProtectedRoute>
-            <PickMeal />
+            <RequireFamily>
+              <PickMeal />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/confirm" element={
           <ProtectedRoute>
-            <Confirm />
+            <RequireFamily>
+              <Confirm />
+            </RequireFamily>
           </ProtectedRoute>
         } />
         <Route path="/profile" element={
           <ProtectedRoute>
-            <Profile />
+            <RequireFamily>
+              <Profile />
+            </RequireFamily>
           </ProtectedRoute>
         } />
       </Routes>
