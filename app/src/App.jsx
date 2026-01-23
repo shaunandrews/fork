@@ -10,6 +10,7 @@ import { Signup } from './screens/Signup'
 import { OnboardingChoice } from './screens/Onboarding/Choice'
 import { CreateFamily } from './screens/Onboarding/CreateFamily'
 import { JoinFamily } from './screens/Onboarding/JoinFamily'
+import { IconHome, IconToolsKitchen2, IconUsers, IconHeart, IconHeartFilled, IconChefHat, IconConfetti, IconChevronLeft, IconChevronRight, IconArrowLeft, IconCheck, IconX, IconPlus } from '@tabler/icons-react'
 import './index.css'
 
 // RequireFamily - redirects to onboarding if no family
@@ -27,7 +28,7 @@ function RequireFamily({ children }) {
         color: 'var(--text-muted)'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+          <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 16 }} />
           <div>Loading...</div>
         </div>
       </div>
@@ -56,7 +57,7 @@ function RequireNoFamily({ children }) {
         color: 'var(--text-muted)'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+          <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 16 }} />
           <div>Loading...</div>
         </div>
       </div>
@@ -78,7 +79,7 @@ const getMemberFromList = (members, id) => {
 // Avatar Stack Component
 function AvatarStack({ memberIds, members, size = 28 }) {
   if (!memberIds || memberIds.length === 0) {
-    return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No votes yet</span>
+    return null
   }
   
   return (
@@ -124,11 +125,16 @@ function VoteButton({ voted, onToggle }) {
         padding: '8px 12px',
         cursor: 'pointer',
         color: voted ? 'white' : 'var(--accent)',
-        fontWeight: 600,
-        fontSize: 16
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        fontSize: 13,
+        fontWeight: 500,
+        whiteSpace: 'nowrap'
       }}
     >
-      {voted ? '▲' : '△'}
+      {voted ? <><IconCheck size={14} stroke={2.5} /> Voted</> : 'Sounds good!'}
     </button>
   )
 }
@@ -138,15 +144,15 @@ function TabBar() {
   return (
     <nav className="tab-bar">
       <NavLink to="/" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`} end>
-        <span className="tab-icon">🍽️</span>
+        <IconHome size={24} stroke={1.5} />
         Today
       </NavLink>
       <NavLink to="/meals" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
-        <span className="tab-icon">📋</span>
+        <IconToolsKitchen2 size={24} stroke={1.5} />
         Meals
       </NavLink>
       <NavLink to="/profile" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
-        <span className="tab-icon">👤</span>
+        <IconUsers size={24} stroke={1.5} />
         Family
       </NavLink>
     </nav>
@@ -284,7 +290,7 @@ function Today() {
       <div className="screen">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🍴</div>
+            <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 16 }} />
             <div>Loading...</div>
           </div>
         </div>
@@ -295,11 +301,7 @@ function Today() {
 
   return (
     <div className="screen">
-      <div className="header">
-        <h1>Fork</h1>
-      </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 24, marginTop: 16 }}>
         <button 
           onClick={goToPreviousDay}
           style={{ 
@@ -308,12 +310,14 @@ function Today() {
             borderRadius: '50%',
             width: 40,
             height: 40,
-            fontSize: 18,
             cursor: 'pointer',
-            color: 'var(--text)'
+            color: 'var(--text)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          ←
+          <IconChevronLeft size={20} stroke={2} />
         </button>
         <div className="date-label" style={{ margin: 0 }}>
           <div className="day">{isToday ? 'Today' : dayName}</div>
@@ -327,12 +331,14 @@ function Today() {
             borderRadius: '50%',
             width: 40,
             height: 40,
-            fontSize: 18,
             cursor: 'pointer',
-            color: 'var(--text)'
+            color: 'var(--text)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
         >
-          →
+          <IconChevronRight size={20} stroke={2} />
         </button>
       </div>
       
@@ -346,12 +352,14 @@ function Today() {
             fontSize: 14,
             cursor: 'pointer',
             marginBottom: 16,
-            display: 'block',
-            width: '100%',
-            textAlign: 'center'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            width: '100%'
           }}
         >
-          ← Back to Today
+          <IconChevronLeft size={16} stroke={2} /> Back to Today
         </button>
       )}
 
@@ -359,7 +367,7 @@ function Today() {
       {isDecided && (
         <>
           <div className="card card-hero">
-            <div className="emoji">🍽️</div>
+            <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 8 }} />
             <h2>{day.decidedMealName}</h2>
             <p>{chef?.name || 'Someone'} is cooking</p>
           </div>
@@ -428,7 +436,7 @@ function Today() {
       {!isDecided && !hasChef && (
         <>
           <div className="card card-hero">
-            <div className="emoji">👨‍🍳</div>
+            <IconChefHat size={48} stroke={1.5} style={{ marginBottom: 8 }} />
             <h2>No chef tonight</h2>
             <p>Who's cooking?</p>
           </div>
@@ -442,16 +450,25 @@ function Today() {
         </>
       )}
 
-      {/* STATE: Undecided - have chef, waiting for meal pick */}
+      {/* STATE: Has chef, waiting for meal pick */}
       {!isDecided && hasChef && (
-        <>
-          <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🍴</div>
-            <h2 style={{ fontSize: 18, marginBottom: 4 }}>What's for dinner?</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-              {chef?.name || 'Someone'} is cooking · {isChef ? 'Pick when ready!' : 'Vote for your pick'}
-            </p>
-            {isChef && (
+        <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+          {isChef ? (
+            <>
+              <IconChefHat size={32} stroke={1.5} style={{ marginBottom: 8 }} />
+              <h2 style={{ fontSize: 18, marginBottom: 4 }}>You're up, chef!</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                No pressure. Just the fate of dinner.
+              </p>
+              {suggestions.length > 0 && (
+                <Link 
+                  to="/pick-meal" 
+                  className="btn btn-primary"
+                  style={{ marginTop: 16 }}
+                >
+                  Pick Tonight's Meal
+                </Link>
+              )}
               <button 
                 onClick={handleUnvolunteer}
                 style={{ 
@@ -459,95 +476,97 @@ function Today() {
                   border: 'none', 
                   color: 'var(--text-muted)', 
                   fontSize: 12, 
-                  marginTop: 8,
+                  marginTop: 12,
                   cursor: 'pointer',
                   textDecoration: 'underline'
                 }}
               >
                 Actually, I can't cook tonight
               </button>
-            )}
-            {/* Admin can reset chef if they're not the chef themselves */}
-            {isAdmin && !isChef && (
-              <button 
-                onClick={handleAdminResetChef}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: 'var(--text-muted)', 
-                  fontSize: 12, 
-                  marginTop: 8,
-                  cursor: 'pointer',
-                  textDecoration: 'underline'
-                }}
-              >
-                Reset chef
-              </button>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              <IconToolsKitchen2 size={32} stroke={1.5} style={{ marginBottom: 8 }} />
+              <h2 style={{ fontSize: 18, marginBottom: 4 }}>What's for dinner?</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                {chef?.name || 'Someone'} is cooking · Vote for your pick
+              </p>
+              {/* Admin can reset chef if they're not the chef themselves */}
+              {isAdmin && (
+                <button 
+                  onClick={handleAdminResetChef}
+                  style={{ 
+                    background: 'none', 
+                    border: 'none', 
+                    color: 'var(--text-muted)', 
+                    fontSize: 12, 
+                    marginTop: 8,
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Reset chef
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
-          <div style={{ marginTop: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ fontSize: 14, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                Suggestions {suggestions.length > 0 && `(${suggestions.length})`}
-              </h3>
-              <Link to="/suggest-meal" style={{ color: 'var(--accent)', fontSize: 14, textDecoration: 'none' }}>+ Suggest</Link>
+      {/* Suggestions - show whenever not decided */}
+      {!isDecided && (
+        <div style={{ marginTop: 20 }}>
+          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+            Suggestions
+          </h3>
+
+          {suggestions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)' }}>
+              <p>No suggestions yet.</p>
             </div>
-
-            {suggestions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)' }}>
-                <p>No suggestions yet.</p>
-                <Link to="/suggest-meal" className="btn btn-secondary btn-small" style={{ marginTop: 12 }}>
-                  Be the first!
-                </Link>
-              </div>
-            ) : (
-              suggestions.map(suggestion => {
-                const voted = hasVoted(suggestion.id)
-                const isMySuggestion = suggestion.suggestedBy === user?.uid
-                return (
-                  <div key={suggestion.id} className="meal-card" style={{ flexWrap: 'wrap' }}>
-                    <VoteButton voted={voted} onToggle={() => handleVote(suggestion.id)} />
-                    <div className="meal-info" style={{ flex: 1, minWidth: 120 }}>
-                      <div className="meal-name">{suggestion.mealName}</div>
-                      <div className="meal-meta">
-                        {isMySuggestion ? 'You suggested' : `${suggestion.suggestedByName} suggested`}
-                        {isMySuggestion && (
-                          <button
-                            onClick={() => handleRemoveSuggestion(suggestion.id)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              fontSize: 12,
-                              cursor: 'pointer',
-                              marginLeft: 8,
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            remove
-                          </button>
-                        )}
-                      </div>
+          ) : (
+            suggestions.map(suggestion => {
+              const voted = hasVoted(suggestion.id)
+              const isMySuggestion = suggestion.suggestedBy === user?.uid
+              return (
+                <div key={suggestion.id} className="meal-card">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="meal-name">{suggestion.mealName}</div>
+                    <div className="meal-meta">
+                      {isMySuggestion ? 'You suggested' : `${suggestion.suggestedByName} suggested`}
+                      {isMySuggestion && (
+                        <button
+                          onClick={() => handleRemoveSuggestion(suggestion.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            marginLeft: 8,
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          remove
+                        </button>
+                      )}
                     </div>
-                    <AvatarStack memberIds={suggestion.votes || []} members={members} />
                   </div>
-                )
-              })
-            )}
+                  <AvatarStack memberIds={suggestion.votes || []} members={members} />
+                  <VoteButton voted={voted} onToggle={() => handleVote(suggestion.id)} />
+                </div>
+              )
+            })
+          )}
 
-            {/* Chef can pick meal */}
-            {isChef && suggestions.length > 0 && (
-              <Link 
-                to="/pick-meal" 
-                className="btn btn-primary"
-                style={{ marginTop: 16 }}
-              >
-                Pick Tonight's Meal
-              </Link>
-            )}
-          </div>
-        </>
+          <Link 
+            to="/suggest-meal" 
+            className="btn btn-secondary"
+            style={{ marginTop: 16 }}
+          >
+            Suggest a Meal
+          </Link>
+        </div>
       )}
       
       <TabBar />
@@ -584,34 +603,28 @@ function Meals() {
 
   return (
     <div className="screen">
-      <div className="header">
-        <h1>Meals</h1>
-        <Link to="/add-meal" className="header-btn">+</Link>
-      </div>
-
-      <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>
-        Your family's meal ideas. Suggest one for tonight.
-      </p>
-
-      <div className="filters">
-        <button 
-          className={`filter ${activeFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('all')}
-        >
-          All
-        </button>
-        <button 
-          className={`filter ${activeFilter === 'favorites' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('favorites')}
-        >
-          Favorites
-        </button>
-        <button 
-          className={`filter ${activeFilter === 'mine' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('mine')}
-        >
-          Mine
-        </button>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 16 }}>
+        <div className="filters" style={{ marginBottom: 0 }}>
+          <button 
+            className={`filter ${activeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            All
+          </button>
+          <button 
+            className={`filter ${activeFilter === 'favorites' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('favorites')}
+          >
+            Favorites
+          </button>
+          <button 
+            className={`filter ${activeFilter === 'mine' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('mine')}
+          >
+            Mine
+          </button>
+        </div>
+        <Link to="/add-meal" className="header-btn"><IconPlus size={20} stroke={2} /></Link>
       </div>
 
       {loading ? (
@@ -620,12 +633,12 @@ function Meals() {
         </div>
       ) : filteredMeals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
+          <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 16 }} />
           <p style={{ color: 'var(--text-muted)' }}>
             {activeFilter === 'all' 
               ? "No meals yet. Add your first one!"
               : activeFilter === 'favorites'
-              ? "No favorites yet. Tap ♡ on meals you love."
+              ? "No favorites yet. Tap the heart on meals you love."
               : "You haven't added any meals yet."}
           </p>
         </div>
@@ -647,7 +660,9 @@ function Meals() {
               className="meal-fav"
               onClick={() => toggleFavorite(meal.id)}
             >
-              {isFavorite(meal.id) ? '❤️' : '🤍'}
+              {isFavorite(meal.id) 
+                ? <IconHeartFilled size={20} color="#ef4444" /> 
+                : <IconHeart size={20} stroke={1.5} />}
             </button>
           </div>
         ))
@@ -693,7 +708,7 @@ function SuggestMeal() {
   return (
     <div className="screen">
       <div className="back-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
+        <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
         <h1>Suggest for Tonight</h1>
       </div>
 
@@ -795,7 +810,7 @@ function AddMeal() {
   return (
     <div className="screen">
       <div className="back-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
+        <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
         <h1>Add Meal</h1>
       </div>
 
@@ -875,12 +890,7 @@ function Week() {
   ]
 
   return (
-    <div className="screen">
-      <div className="header">
-        <h1>This Week</h1>
-        <Link to="/profile" className="header-btn">👤</Link>
-      </div>
-
+    <div className="screen" style={{ paddingTop: 16 }}>
       {weekData.map((day, i) => (
         <div key={i} className={`week-day ${day.isToday ? 'today' : ''}`}>
           <div className="day-date">
@@ -894,8 +904,8 @@ function Week() {
                 {day.meal ? (
                   <div className="day-meal">{day.meal}</div>
                 ) : day.isToday ? (
-                  <Link to="/pick-meal" className="day-meal" style={{ color: 'var(--accent)' }}>
-                    Pick meal →
+                  <Link to="/pick-meal" className="day-meal" style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Pick meal <IconChevronRight size={14} stroke={2} />
                   </Link>
                 ) : (
                   <div className="day-meal" style={{ color: 'var(--text-muted)' }}>—</div>
@@ -953,7 +963,7 @@ function PickMeal() {
   return (
     <div className="screen">
       <div className="back-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
+        <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
         <h1>Pick Tonight's Meal</h1>
       </div>
 
@@ -1009,7 +1019,7 @@ function Confirm() {
   return (
     <div className="screen">
       <div className="celebration">
-        <div className="emoji">🎉</div>
+        <IconConfetti size={64} stroke={1.5} style={{ marginBottom: 16 }} />
         <h2>{day?.decidedMealName || 'Dinner'} it is!</h2>
         <p>Your family has been notified.</p>
         <button className="btn btn-primary" onClick={() => navigate('/')}>
@@ -1161,11 +1171,7 @@ function Profile() {
   }
   
   return (
-    <div className="screen">
-      <div className="header">
-        <h1>Family</h1>
-      </div>
-
+    <div className="screen" style={{ paddingTop: 16 }}>
       <div className="card" style={{ textAlign: 'center' }}>
         <button
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -1260,7 +1266,7 @@ function Profile() {
                 fontSize: 14
               }}
             >
-              {copied ? '✓ Copied' : 'Copy'}
+              {copied ? <><IconCheck size={14} stroke={2} style={{ marginRight: 4 }} /> Copied</> : 'Copy'}
             </button>
           </div>
           <button className="btn btn-secondary" onClick={handleShare}>
@@ -1295,12 +1301,13 @@ function Profile() {
                     background: 'none',
                     border: 'none',
                     color: '#ef4444',
-                    fontSize: 18,
                     cursor: 'pointer',
-                    padding: 4
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center'
                   }}
                 >
-                  ×
+                  <IconX size={18} stroke={2} />
                 </button>
               )}
             </div>

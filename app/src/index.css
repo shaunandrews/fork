@@ -60,8 +60,14 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 300;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  line-height: 1;
 }
 
 /* Tab Bar */
@@ -177,11 +183,14 @@ body {
 }
 
 .meal-fav {
-  font-size: 20px;
   background: none;
   border: none;
   cursor: pointer;
   padding: 4px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Buttons */
@@ -342,9 +351,10 @@ textarea.form-input {
   background: none;
   border: none;
   color: var(--text);
-  font-size: 24px;
   cursor: pointer;
   padding: 0;
+  display: flex;
+  align-items: center;
 }
 
 .back-header h1 {
