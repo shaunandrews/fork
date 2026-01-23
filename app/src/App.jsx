@@ -994,9 +994,8 @@ function Profile() {
   
   return (
     <div className="screen">
-      <div className="back-header">
-        <button className="back-btn" onClick={() => navigate(-1)}>←</button>
-        <h1>Profile</h1>
+      <div className="header">
+        <h1>Family</h1>
       </div>
 
       <div className="card" style={{ textAlign: 'center' }}>
@@ -1077,6 +1076,8 @@ function Profile() {
       >
         Sign Out
       </button>
+
+      <TabBar />
     </div>
   )
 }
