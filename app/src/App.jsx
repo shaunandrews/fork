@@ -919,8 +919,19 @@ function Confirm() {
 function Profile() {
   const navigate = useNavigate()
   const { signOut, userProfile } = useAuth()
-  const { family, members, currentMember } = useFamily()
+  const { family, members, currentMember, isAdmin, removeMember } = useFamily()
   const [copied, setCopied] = useState(false)
+
+  const handleRemoveMember = async (memberId, memberName) => {
+    if (!confirm(`Remove ${memberName} from the family?`)) return
+    
+    try {
+      await removeMember(memberId)
+    } catch (err) {
+      console.error('Remove member error:', err)
+      alert(err.message || 'Failed to remove member')
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -1051,7 +1062,7 @@ function Profile() {
           {members.map(member => (
             <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 32 }}>{member.avatar}</span>
-              <span>{member.name}</span>
+              <span style={{ flex: 1 }}>{member.name}</span>
               {member.role === 'admin' && (
                 <span style={{ 
                   fontSize: 10, 
@@ -1063,6 +1074,21 @@ function Profile() {
               )}
               {member.id === currentMember?.id && (
                 <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>(you)</span>
+              )}
+              {isAdmin && member.id !== currentMember?.id && (
+                <button
+                  onClick={() => handleRemoveMember(member.id, member.name)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: 18,
+                    cursor: 'pointer',
+                    padding: 4
+                  }}
+                >
+                  ×
+                </button>
               )}
             </div>
           ))}

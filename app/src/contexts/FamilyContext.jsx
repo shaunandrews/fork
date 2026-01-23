@@ -8,7 +8,8 @@ import {
   where, 
   getDocs,
   onSnapshot,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from './AuthContext'
@@ -156,6 +157,27 @@ export function FamilyProvider({ children }) {
 
   // Get current user's member record
   const currentMember = members.find(m => m.id === user?.uid)
+  const isAdmin = currentMember?.role === 'admin'
+
+  // Remove a member from the family (admin only)
+  const removeMember = async (memberId) => {
+    if (!user || !familyId) throw new Error('Not authenticated')
+    if (!isAdmin) throw new Error('Only admins can remove members')
+    if (memberId === user.uid) throw new Error('You cannot remove yourself')
+
+    // Delete from members subcollection
+    const memberRef = doc(db, 'families', familyId, 'members', memberId)
+    await deleteDoc(memberRef)
+
+    // Clear their familyId in users collection (so they can join another family)
+    try {
+      const userRef = doc(db, 'users', memberId)
+      await updateDoc(userRef, { familyId: null })
+    } catch (err) {
+      // User doc might not exist anymore, that's ok
+      console.log('Could not update user doc:', err)
+    }
+  }
 
   const value = {
     family,
@@ -163,8 +185,10 @@ export function FamilyProvider({ children }) {
     currentMember,
     loading,
     hasFamily: !!familyId,
+    isAdmin,
     createFamily,
     joinFamily,
+    removeMember,
   }
 
   return (
