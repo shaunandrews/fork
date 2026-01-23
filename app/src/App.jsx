@@ -174,6 +174,7 @@ function Today() {
     suggestions, 
     loading,
     volunteerAsChef,
+    unvolunteer,
     toggleVote,
     hasVoted,
     isChef,
@@ -192,6 +193,15 @@ function Today() {
       await volunteerAsChef()
     } catch (err) {
       console.error('Volunteer error:', err)
+      alert(err.message)
+    }
+  }
+
+  const handleUnvolunteer = async () => {
+    try {
+      await unvolunteer()
+    } catch (err) {
+      console.error('Unvolunteer error:', err)
       alert(err.message)
     }
   }
@@ -271,6 +281,22 @@ function Today() {
             <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
               {chef?.name || 'Someone'} is cooking · {isChef ? 'Pick when ready!' : 'Vote for your pick'}
             </p>
+            {isChef && (
+              <button 
+                onClick={handleUnvolunteer}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: 'var(--text-muted)', 
+                  fontSize: 12, 
+                  marginTop: 8,
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Actually, I can't cook tonight
+              </button>
+            )}
           </div>
 
           <div style={{ marginTop: 20 }}>
