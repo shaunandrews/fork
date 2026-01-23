@@ -9,7 +9,9 @@ import {
   getDocs,
   onSnapshot,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  arrayRemove,
+  collectionGroup
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from './AuthContext'
@@ -165,11 +167,42 @@ export function FamilyProvider({ children }) {
     if (!isAdmin) throw new Error('Only admins can remove members')
     if (memberId === user.uid) throw new Error('You cannot remove yourself')
 
-    // Delete from members subcollection
+    // 1. Clean up days where this member was the chef
+    const daysRef = collection(db, 'families', familyId, 'days')
+    const daysQuery = query(daysRef, where('chefId', '==', memberId))
+    const daysSnapshot = await getDocs(daysQuery)
+    
+    for (const dayDoc of daysSnapshot.docs) {
+      await updateDoc(dayDoc.ref, {
+        chefId: null,
+        chefName: null,
+        decidedMealId: null,
+        decidedMealName: null,
+        decidedAt: null
+      })
+    }
+
+    // 2. Remove their votes from all suggestions (scan all days)
+    const allDaysSnapshot = await getDocs(daysRef)
+    for (const dayDoc of allDaysSnapshot.docs) {
+      const suggestionsRef = collection(dayDoc.ref, 'suggestions')
+      const suggestionsSnapshot = await getDocs(suggestionsRef)
+      
+      for (const suggestionDoc of suggestionsSnapshot.docs) {
+        const votes = suggestionDoc.data().votes || []
+        if (votes.includes(memberId)) {
+          await updateDoc(suggestionDoc.ref, {
+            votes: arrayRemove(memberId)
+          })
+        }
+      }
+    }
+
+    // 3. Delete from members subcollection
     const memberRef = doc(db, 'families', familyId, 'members', memberId)
     await deleteDoc(memberRef)
 
-    // Clear their familyId in users collection (so they can join another family)
+    // 4. Clear their familyId in users collection (so they can join another family)
     try {
       const userRef = doc(db, 'users', memberId)
       await updateDoc(userRef, { familyId: null })
