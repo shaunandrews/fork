@@ -155,10 +155,36 @@ export function useMeals() {
     }
   }
 
+  // Update an existing meal
+  const updateMeal = async (mealId, { name, note, imageFile, removeImage }) => {
+    if (!familyId || !user) throw new Error('Not authenticated')
+
+    const mealRef = doc(db, 'families', familyId, 'meals', mealId)
+    
+    const updates = {
+      name: name.trim(),
+      note: note?.trim() || null,
+    }
+
+    // Handle image changes
+    if (removeImage) {
+      updates.imageUrl = null
+      // TODO: Could also delete from storage, but leaving for now
+    } else if (imageFile) {
+      const resizedBlob = await resizeImage(imageFile, 1200)
+      const storageRef = ref(storage, `meals/${familyId}/${mealId}.jpg`)
+      await uploadBytes(storageRef, resizedBlob, { contentType: 'image/jpeg' })
+      updates.imageUrl = await getDownloadURL(storageRef)
+    }
+
+    await updateDoc(mealRef, updates)
+  }
+
   return {
     meals,
     loading,
     addMeal,
+    updateMeal,
     deleteMeal,
     toggleFavorite,
     isFavorite,

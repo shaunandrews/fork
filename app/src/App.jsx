@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate, Navigate, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from './contexts/AuthContext'
 import { useFamily } from './contexts/FamilyContext'
@@ -10,7 +10,8 @@ import { Signup } from './screens/Signup'
 import { OnboardingChoice } from './screens/Onboarding/Choice'
 import { CreateFamily } from './screens/Onboarding/CreateFamily'
 import { JoinFamily } from './screens/Onboarding/JoinFamily'
-import { IconHome, IconToolsKitchen2, IconUsers, IconHeart, IconHeartFilled, IconChefHat, IconConfetti, IconChevronLeft, IconChevronRight, IconArrowLeft, IconCheck, IconX, IconPlus } from '@tabler/icons-react'
+import { AddCommonMeals } from './screens/AddCommonMeals'
+import { IconHome, IconToolsKitchen2, IconUsers, IconHeart, IconHeartFilled, IconChefHat, IconConfetti, IconChevronLeft, IconChevronRight, IconArrowLeft, IconCheck, IconX, IconPlus, IconPencil } from '@tabler/icons-react'
 import './index.css'
 
 // RequireFamily - redirects to onboarding if no family
@@ -636,6 +637,19 @@ function Meals() {
         <Link to="/add-meal" className="header-btn"><IconPlus size={20} stroke={2} /></Link>
       </div>
 
+      <div style={{
+        textAlign: 'center',
+        marginBottom: 16,
+        fontSize: 13,
+        color: 'var(--text-muted)'
+      }}>
+        Looking for ideas? <Link to="/add-common-meals" style={{
+          color: 'var(--primary)',
+          textDecoration: 'none',
+          fontWeight: 600
+        }}>Browse common meals</Link>
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
           Loading meals...
@@ -643,30 +657,49 @@ function Meals() {
       ) : filteredMeals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 40 }}>
           <IconToolsKitchen2 size={48} stroke={1.5} style={{ marginBottom: 16 }} />
-          <p style={{ color: 'var(--text-muted)' }}>
-            {activeFilter === 'all' 
+          <p style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+            {activeFilter === 'all'
               ? "No meals yet. Add your first one!"
               : activeFilter === 'favorites'
               ? "No favorites yet. Tap the heart on meals you love."
               : "You haven't added any meals yet."}
           </p>
+          {activeFilter === 'all' && (
+            <Link to="/add-common-meals" style={{
+              color: 'var(--primary)',
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: 600
+            }}>
+              Browse Common Meals →
+            </Link>
+          )}
         </div>
       ) : (
         filteredMeals.map(meal => (
-          <div key={meal.id} className="meal-card">
+          <Link 
+            key={meal.id} 
+            to={`/meal/${meal.id}`}
+            className="meal-card"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <div className="meal-info">
               <div className="meal-name">{meal.name}</div>
               <div className="meal-meta">Added by {getMemberName(meal.addedBy)}</div>
             </div>
             <button 
               className="meal-fav"
-              onClick={() => toggleFavorite(meal.id)}
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleFavorite(meal.id)
+              }}
             >
               {isFavorite(meal.id) 
                 ? <IconHeartFilled size={20} color="#ef4444" /> 
                 : <IconHeart size={20} stroke={1.5} />}
             </button>
-          </div>
+          </Link>
         ))
       )}
 
@@ -940,6 +973,357 @@ function AddMeal() {
           style={{ opacity: loading ? 0.7 : 1 }}
         >
           {loading ? (imageFile ? 'Uploading...' : 'Adding...') : 'Add to Library'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// Meal Detail Screen
+function MealDetail() {
+  const navigate = useNavigate()
+  const { mealId } = useParams()
+  const { meals, toggleFavorite, isFavorite } = useMeals()
+  const { members } = useFamily()
+  
+  const meal = meals.find(m => m.id === mealId)
+  
+  // Get member by ID
+  const getMember = (userId) => {
+    return members.find(m => m.id === userId)
+  }
+  
+  // Format date
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Unknown'
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+  
+  if (!meal) {
+    return (
+      <div className="screen">
+        <div className="back-header">
+          <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
+          <h1>Meal</h1>
+        </div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Meal not found
+        </div>
+      </div>
+    )
+  }
+  
+  const addedByMember = getMember(meal.addedBy)
+  const favoritedMembers = (meal.favoritedBy || []).map(getMember).filter(Boolean)
+  
+  return (
+    <div className="screen">
+      <div className="back-header" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
+          <h1>Meal</h1>
+        </div>
+        <Link to={`/meal/${mealId}/edit`} className="header-btn">
+          <IconPencil size={20} stroke={2} />
+        </Link>
+      </div>
+      
+      {meal.imageUrl && (
+        <img 
+          src={meal.imageUrl} 
+          alt={meal.name}
+          style={{
+            width: '100%',
+            aspectRatio: '1',
+            objectFit: 'cover',
+            borderRadius: 12,
+            marginBottom: 20
+          }}
+        />
+      )}
+      
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 600, margin: 0 }}>{meal.name}</h2>
+        <button 
+          onClick={() => toggleFavorite(meal.id)}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 4
+          }}
+        >
+          {isFavorite(meal.id) 
+            ? <IconHeartFilled size={28} color="#ef4444" /> 
+            : <IconHeart size={28} stroke={1.5} />}
+        </button>
+      </div>
+      
+      {meal.note && (
+        <div style={{ marginBottom: 20, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          {meal.note}
+        </div>
+      )}
+      
+      <div className="card">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: favoritedMembers.length > 0 ? 16 : 0 }}>
+          {addedByMember?.avatarUrl ? (
+            <img 
+              src={addedByMember.avatarUrl} 
+              alt={addedByMember.name}
+              style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span style={{ fontSize: 32 }}>{addedByMember?.avatar || '👤'}</span>
+          )}
+          <div>
+            <div style={{ fontWeight: 500 }}>{addedByMember?.name || 'Someone'}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Added {formatDate(meal.createdAt)}
+            </div>
+          </div>
+        </div>
+        
+        {favoritedMembers.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+              Favorited by
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {favoritedMembers.map(member => (
+                <div 
+                  key={member.id}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 6,
+                    background: 'var(--bg)',
+                    padding: '4px 10px 4px 4px',
+                    borderRadius: 20
+                  }}
+                >
+                  {member.avatarUrl ? (
+                    <img 
+                      src={member.avatarUrl} 
+                      alt={member.name}
+                      style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 18 }}>{member.avatar}</span>
+                  )}
+                  <span style={{ fontSize: 13 }}>{member.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Edit Meal Screen
+function EditMeal() {
+  const navigate = useNavigate()
+  const { mealId } = useParams()
+  const { meals, updateMeal } = useMeals()
+  const [name, setName] = useState('')
+  const [note, setNote] = useState('')
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [existingImage, setExistingImage] = useState(null)
+  const [removeImage, setRemoveImage] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const meal = meals.find(m => m.id === mealId)
+
+  // Initialize form with meal data
+  useState(() => {
+    if (meal) {
+      setName(meal.name || '')
+      setNote(meal.note || '')
+      setExistingImage(meal.imageUrl || null)
+    }
+  }, [meal])
+
+  // Update form when meal loads
+  if (meal && !name && meal.name) {
+    setName(meal.name)
+    setNote(meal.note || '')
+    setExistingImage(meal.imageUrl || null)
+  }
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setImageFile(file)
+    setRemoveImage(false)
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(previewUrl)
+  }
+
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview)
+      setImagePreview(null)
+    }
+    setExistingImage(null)
+    setRemoveImage(true)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!name.trim()) {
+      setError('Please enter a meal name')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      await updateMeal(mealId, { name, note, imageFile, removeImage })
+      navigate(`/meal/${mealId}`)
+    } catch (err) {
+      console.error('Update meal error:', err)
+      setError(err.message || 'Failed to update meal')
+      setLoading(false)
+    }
+  }
+
+  if (!meal) {
+    return (
+      <div className="screen">
+        <div className="back-header">
+          <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
+          <h1>Edit Meal</h1>
+        </div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+          Meal not found
+        </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="screen">
+      <div className="back-header">
+        <button className="back-btn" onClick={() => navigate(-1)}><IconArrowLeft size={24} stroke={2} /></button>
+        <h1>Edit Meal</h1>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        {error && (
+          <div style={{ 
+            background: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 20,
+            color: '#ef4444',
+            fontSize: 14
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div className="form-group">
+          <label className="form-label">What's the meal?</label>
+          <input 
+            type="text" 
+            className="form-input" 
+            placeholder="Beef tacos, lasagna, etc."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Photo (optional)</label>
+          {(imagePreview || existingImage) ? (
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <img 
+                src={imagePreview || existingImage} 
+                alt="Preview" 
+                style={{ 
+                  width: '100%', 
+                  aspectRatio: '1', 
+                  objectFit: 'cover', 
+                  borderRadius: 12 
+                }} 
+              />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  background: 'rgba(0,0,0,0.6)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'white'
+                }}
+              >
+                <IconX size={18} stroke={2} />
+              </button>
+            </div>
+          ) : (
+            <label style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 32,
+              background: 'var(--surface)',
+              borderRadius: 12,
+              cursor: 'pointer',
+              gap: 8
+            }}>
+              <IconPlus size={32} stroke={1.5} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Add a photo</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                style={{ display: 'none' }}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Note (optional)</label>
+          <textarea 
+            className="form-input" 
+            placeholder="The good corn tortillas from Wegmans..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          className="btn btn-primary"
+          disabled={loading}
+          style={{ opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? 'Saving...' : 'Save Changes'}
         </button>
       </form>
     </div>
@@ -1554,6 +1938,27 @@ function App() {
           <ProtectedRoute>
             <RequireFamily>
               <AddMeal />
+            </RequireFamily>
+          </ProtectedRoute>
+        } />
+        <Route path="/add-common-meals" element={
+          <ProtectedRoute>
+            <RequireFamily>
+              <AddCommonMeals />
+            </RequireFamily>
+          </ProtectedRoute>
+        } />
+        <Route path="/meal/:mealId" element={
+          <ProtectedRoute>
+            <RequireFamily>
+              <MealDetail />
+            </RequireFamily>
+          </ProtectedRoute>
+        } />
+        <Route path="/meal/:mealId/edit" element={
+          <ProtectedRoute>
+            <RequireFamily>
+              <EditMeal />
             </RequireFamily>
           </ProtectedRoute>
         } />
