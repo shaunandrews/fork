@@ -15,13 +15,12 @@ import {
 } from "@spacefast/zero/client";
 import type app from "../server/index";
 import { addDays, dayName, shortDate, todayLocal } from "../shared/dates";
-import { RECIPES } from "../shared/recipes";
 
-const api = createClient<typeof app>();
+export const api = createClient<typeof app>();
 
 // ---------- small helpers ----------
 
-function useRunner() {
+export function useRunner() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -39,7 +38,7 @@ function useRunner() {
   return { error, busy, run, clear: () => setError(null) };
 }
 
-function ErrorLine({ text }: { text: string | null }) {
+export function ErrorLine({ text }: { text: string | null }) {
   if (!text) return null;
   return (
     <p role="alert" class="mt-2 text-sm text-danger">
@@ -48,12 +47,12 @@ function ErrorLine({ text }: { text: string | null }) {
   );
 }
 
-const btn = "inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50";
-const btnPrimary = `${btn} bg-accent text-white hover:opacity-90`;
-const btnQuiet = `${btn} border border-line bg-surface text-ink hover:bg-canvas`;
-const btnGhost = `${btn} text-ink-muted hover:text-ink`;
-const input = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-accent";
-const card = "rounded-xl border border-line bg-surface p-4";
+export const btn = "inline-flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition disabled:opacity-50";
+export const btnPrimary = `${btn} bg-accent text-white hover:opacity-90`;
+export const btnQuiet = `${btn} border border-line bg-surface text-ink hover:bg-canvas`;
+export const btnGhost = `${btn} text-ink-muted hover:text-ink`;
+export const input = "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-accent";
+export const card = "rounded-xl border border-line bg-surface p-4";
 
 function Shell({ children }: { children: any }) {
   return (
@@ -63,7 +62,7 @@ function Shell({ children }: { children: any }) {
   );
 }
 
-function Loading() {
+export function Loading() {
   return <p class="py-10 text-center text-ink-muted">Loading…</p>;
 }
 
@@ -599,6 +598,11 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                         <button class={`${btnGhost} px-0`} onClick={() => setEditing(s.id)}>
                           {s.ingredientLines.length ? "Edit ingredients" : "+ Add ingredients"}
                         </button>
+                        {s.recipeSlug ? (
+                          <Link to={`/recipe/${s.recipeSlug}`} class={`${btnGhost} px-0`}>
+                            Open recipe
+                          </Link>
+                        ) : null}
                         {s.mine || s.fromFork ? (
                           <button class={`${btnGhost} px-0 text-danger`} onClick={() => void r.run(() => remove(s.id))}>
                             Remove suggestion
@@ -677,7 +681,7 @@ function WeekPage() {
 
 // ---------- meals ----------
 
-function SuggestOnDay({ title, onDone }: { title: string; onDone: (note: string) => void }) {
+export function SuggestOnDay({ title, onDone }: { title: string; onDone: (note: string) => void }) {
   const suggest = api.useMutation("suggestMeal");
   const today = todayLocal();
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -703,192 +707,6 @@ function SuggestOnDay({ title, onDone }: { title: string; onDone: (note: string)
         Suggest
       </button>
       <ErrorLine text={r.error} />
-    </div>
-  );
-}
-
-function MealForm({ originalKey, title: startTitle, lines, onDone }: { originalKey: string; title: string; lines: string[]; onDone: () => void }) {
-  const save = api.useMutation("saveMeal");
-  const [title, setTitle] = useState(startTitle);
-  const [text, setText] = useState(lines.join("\n"));
-  const r = useRunner();
-  return (
-    <form
-      class="mt-2 flex flex-col gap-2"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const ok = await r.run(() => save(originalKey, title, text).then(() => true));
-        if (ok) onDone();
-      }}
-    >
-      <input class={input} placeholder="Meal name" value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} />
-      <textarea
-        class={`${input} min-h-32`}
-        placeholder={"One ingredient per line\n2 lb chicken thighs\n1 onion\n3 cloves garlic"}
-        value={text}
-        onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
-      />
-      <div class="flex gap-2">
-        <button class={btnPrimary} disabled={r.busy || !title.trim()}>
-          Save meal
-        </button>
-        <button type="button" class={btnGhost} onClick={onDone}>
-          Cancel
-        </button>
-      </div>
-      <ErrorLine text={r.error} />
-    </form>
-  );
-}
-
-type OpenState = { id: string; mode: "view" | "edit" | "suggest" } | null;
-
-export function MealsPage() {
-  const meals = api.useQuery("meals");
-  const removeMeal = api.useMutation("removeMeal");
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState<OpenState>(null);
-  const [adding, setAdding] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const r = useRunner();
-  if (meals === undefined) return <Loading />;
-  const needle = q.trim().toLowerCase();
-  const hit = (title: string) => !needle || title.toLowerCase().includes(needle);
-  const mine = meals.filter((m) => hit(m.title));
-  const mineKeys = new Set(meals.map((m) => m.key));
-  const recipes = RECIPES.filter((x) => hit(x.title) && !mineKeys.has(x.title.trim().toLowerCase()));
-  const toggle = (id: string) => setOpen(open?.id === id ? null : { id, mode: "view" });
-  const done = (msg?: string) => {
-    setOpen(null);
-    if (msg) setNote(msg);
-  };
-
-  const ingredientList = (lines: string[]) =>
-    lines.length ? (
-      <ul class="list-disc pl-5 text-ink">
-        {lines.map((line, i) => (
-          <li key={i}>{line}</li>
-        ))}
-      </ul>
-    ) : (
-      <p class="text-ink-muted">No ingredients yet.</p>
-    );
-
-  return (
-    <div class="flex flex-col gap-4">
-      <input class={input} type="search" placeholder="Search meals" value={q} onInput={(e) => setQ((e.target as HTMLInputElement).value)} />
-      {note ? <p class="rounded-lg bg-canvas px-3 py-2 text-sm text-success">{note}</p> : null}
-
-      <section class={card}>
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="text-base font-semibold">Your meals</h2>
-          {adding ? null : (
-            <button class={btnQuiet} onClick={() => setAdding(true)}>
-              + Add a meal
-            </button>
-          )}
-        </div>
-        {adding ? <MealForm originalKey="" title="" lines={[]} onDone={() => setAdding(false)} /> : null}
-        {mine.length ? (
-          <ul class="mt-3 flex flex-col gap-2">
-            {mine.map((m) => {
-              const id = `m:${m.key}`;
-              const isOpen = open?.id === id;
-              return (
-                <li key={id} class="rounded-lg border border-line px-3 py-2">
-                  <button class="w-full text-left" onClick={() => toggle(id)}>
-                    <div class="font-medium">{m.title}</div>
-                    <div class="text-xs text-ink-muted">
-                      {m.timesPicked ? `Picked ${m.timesPicked === 1 ? "once" : `${m.timesPicked} times`}` : "Not picked yet"}
-                      {m.lastPicked ? ` · last ${dayName(m.lastPicked)} ${shortDate(m.lastPicked)}` : ""}
-                      {` · ${m.lines.length} ingredients`}
-                    </div>
-                  </button>
-                  {isOpen ? (
-                    <div class="mt-2 border-t border-line pt-2 text-sm">
-                      {open?.mode === "edit" ? (
-                        <MealForm originalKey={m.key} title={m.title} lines={m.lines} onDone={() => done()} />
-                      ) : (
-                        <>
-                          {ingredientList(m.lines)}
-                          {open?.mode === "suggest" ? (
-                            <SuggestOnDay title={m.title} onDone={(msg) => done(msg)} />
-                          ) : (
-                            <div class="mt-2 flex flex-wrap gap-3">
-                              <button class={btnQuiet} onClick={() => setOpen({ id, mode: "suggest" })}>
-                                Suggest for a day
-                              </button>
-                              <button class={`${btnGhost} px-0`} onClick={() => setOpen({ id, mode: "edit" })}>
-                                Edit
-                              </button>
-                              <button class={`${btnGhost} px-0 text-danger`} onClick={() => void r.run(() => removeMeal(m.key)).then(() => done())}>
-                                Remove
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p class="mt-2 text-sm text-ink-muted">
-            {needle ? "None of your meals match." : "Meals your family picks or adds show up here, with their ingredients."}
-          </p>
-        )}
-        <ErrorLine text={r.error} />
-      </section>
-
-      <section class={card}>
-        <h2 class="text-base font-semibold">Fork's recipes</h2>
-        <p class="mt-1 text-sm text-ink-muted">Ideas to try. Save one to your meals to make it your own.</p>
-        {recipes.length ? (
-          <ul class="mt-3 flex flex-col gap-2">
-            {recipes.map((x) => {
-              const id = `r:${x.title}`;
-              const isOpen = open?.id === id;
-              return (
-                <li key={id} class="rounded-lg border border-line px-3 py-2">
-                  <button class="w-full text-left" onClick={() => toggle(id)}>
-                    <div class="font-medium">{x.title}</div>
-                    <div class="text-xs text-ink-muted">
-                      {x.tags.join(" · ")} · {x.ingredients.length} ingredients
-                    </div>
-                  </button>
-                  {isOpen ? (
-                    <div class="mt-2 border-t border-line pt-2 text-sm">
-                      {open?.mode === "edit" ? (
-                        <MealForm originalKey="" title={x.title} lines={x.ingredients} onDone={() => done()} />
-                      ) : (
-                        <>
-                          {ingredientList(x.ingredients)}
-                          {open?.mode === "suggest" ? (
-                            <SuggestOnDay title={x.title} onDone={(msg) => done(msg)} />
-                          ) : (
-                            <div class="mt-2 flex flex-wrap gap-3">
-                              <button class={btnQuiet} onClick={() => setOpen({ id, mode: "suggest" })}>
-                                Suggest for a day
-                              </button>
-                              <button class={`${btnGhost} px-0`} onClick={() => setOpen({ id, mode: "edit" })}>
-                                Save to your meals
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p class="mt-2 text-sm text-ink-muted">No recipes match.</p>
-        )}
-      </section>
     </div>
   );
 }
@@ -1051,7 +869,8 @@ export function FamilyPage() {
 function Tabs() {
   const loc = useLocation();
   const tab = (to: string, label: string) => {
-    const active = loc.pathname === to;
+    const active =
+      to === "/meals" ? /^\/(meals|recipe|idea)(\/|$)/.test(loc.pathname) : loc.pathname === to;
     return (
       <Link
         to={to}
