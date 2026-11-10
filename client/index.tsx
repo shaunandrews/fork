@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   createClient,
   Link,
@@ -69,26 +69,171 @@ function Loading() {
 
 // ---------- sign in ----------
 
-function SignIn() {
-  const loc = useLocation();
-  const returnTo = loc.pathname + loc.search;
+function SignInButtons({ returnTo }: { returnTo: string }) {
   return (
-    <Shell>
-      <div class="mx-auto mt-16 max-w-sm text-center">
-        <div class="text-5xl">🍴</div>
-        <h1 class="mt-3 text-3xl font-bold">Fork</h1>
-        <p class="mt-2 text-ink-muted">Plan dinners together. Suggest meals, vote, pick a chef, and share one shopping list.</p>
-        <div class="mt-8 flex flex-col gap-3">
-          <SignInWithGoogle returnTo={returnTo} className={btnPrimary} />
-          <SignInWithGravatar returnTo={returnTo} className={btnQuiet} />
-          <SignInWithSpacefast returnTo={returnTo} className={btnQuiet} />
-        </div>
-      </div>
-    </Shell>
+    <div class="flex flex-col gap-3">
+      <SignInWithGoogle returnTo={returnTo} className={btnPrimary} />
+      <SignInWithGravatar returnTo={returnTo} className={btnQuiet} />
+      <SignInWithSpacefast returnTo={returnTo} className={btnQuiet} />
+    </div>
   );
 }
 
-// ---------- onboarding ----------
+function Redirect({ to }: { to: string }) {
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [to]);
+  return null;
+}
+
+function Brand() {
+  return (
+    <Link to="/" class="flex items-center gap-2 text-lg font-bold text-ink">
+      <span class="text-2xl">🍴</span> Fork
+    </Link>
+  );
+}
+
+function SmallPage({ children }: { children: any }) {
+  return (
+    <div class="min-h-screen bg-canvas text-ink">
+      <div class="mx-auto max-w-md px-4 pb-16 pt-6">
+        <Brand />
+        <div class="mt-10">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- landing ----------
+
+const features = [
+  { icon: "🗳️", title: "Suggest and vote", text: "Anyone can throw out an idea for any night. Everyone else votes on what sounds good." },
+  { icon: "👩‍🍳", title: "Pick a chef", text: "Someone volunteers to cook. The chef sees the votes and makes the call." },
+  { icon: "✨", title: "Plan the week", text: "Stuck for ideas? Fork fills empty nights with family-friendly dinners you can pick from." },
+  { icon: "🛒", title: "One shopping list", text: "Picked meals drop their ingredients onto a shared list, merged and sorted by aisle." },
+];
+
+const steps = [
+  { title: "Start your family", text: "Name it, then send the invite link to everyone at home." },
+  { title: "Suggest dinners", text: "Add ideas for the days ahead and vote on the ones you like." },
+  { title: "Cook and shop", text: "The chef picks, and the groceries land on the list you all share." },
+];
+
+function PreviewCard() {
+  return (
+    <div class={`${card} shadow-sm`} aria-hidden="true">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium uppercase tracking-wide text-ink-muted">Tuesday</p>
+          <p class="text-lg font-semibold">Tacos 🌮</p>
+        </div>
+        <span class="rounded-full bg-canvas px-2 py-1 text-xs text-ink-muted">Chef: Sam</span>
+      </div>
+      <ul class="mt-4 flex flex-col gap-2 text-sm">
+        <li class="flex items-center justify-between rounded-lg border border-line px-3 py-2">
+          <span>Tacos</span>
+          <span class="font-medium text-accent">▲ 3 · picked</span>
+        </li>
+        <li class="flex items-center justify-between rounded-lg border border-line px-3 py-2">
+          <span>Breakfast for dinner</span>
+          <span class="text-ink-muted">▲ 2</span>
+        </li>
+        <li class="flex items-center justify-between rounded-lg border border-line px-3 py-2">
+          <span>Chicken stir fry</span>
+          <span class="text-ink-muted">▲ 1</span>
+        </li>
+      </ul>
+      <div class="mt-4 border-t border-line pt-3 text-sm">
+        <p class="text-xs font-medium uppercase tracking-wide text-ink-muted">Shopping list</p>
+        <p class="mt-1">☑ ground beef 1 lb · ☐ tortillas 8 · ☐ cheddar 8 oz</p>
+      </div>
+    </div>
+  );
+}
+
+function Landing({ signedIn }: { signedIn: boolean }) {
+  return (
+    <div class="min-h-screen bg-canvas text-ink">
+      <div class="mx-auto max-w-5xl px-4">
+        <header class="flex items-center justify-between py-5">
+          <Brand />
+          <nav class="flex items-center gap-2">
+            <Link to="/join" class={btnGhost}>
+              Join a family
+            </Link>
+            <Link to="/start" class={btnQuiet}>
+              {signedIn ? "Start a family" : "Sign in"}
+            </Link>
+          </nav>
+        </header>
+
+        <section class="grid items-center gap-10 py-12 md:grid-cols-2 md:py-20">
+          <div>
+            <h1 class="text-4xl font-bold leading-tight md:text-5xl">What's for dinner? Decided, together.</h1>
+            <p class="mt-4 text-lg text-ink-muted">
+              Fork is a meal planner for families. Everyone suggests what sounds good, someone volunteers to cook, and the week's
+              groceries land on one shared list.
+            </p>
+            <div class="mt-8 flex flex-wrap gap-3">
+              <Link to="/start" class={`${btnPrimary} px-5 py-3 text-base`}>
+                Start your family
+              </Link>
+              <Link to="/join" class={`${btnQuiet} px-5 py-3 text-base`}>
+                I have an invite
+              </Link>
+            </div>
+            <p class="mt-4 text-sm text-ink-muted">Free for your household. Set up takes a minute.</p>
+          </div>
+          <PreviewCard />
+        </section>
+
+        <section class="py-12">
+          <h2 class="text-2xl font-bold">Everything dinner needs, nothing it doesn't</h2>
+          <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            {features.map((f) => (
+              <div key={f.title} class={card}>
+                <div class="text-2xl">{f.icon}</div>
+                <h3 class="mt-2 font-semibold">{f.title}</h3>
+                <p class="mt-1 text-sm text-ink-muted">{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section class="py-12">
+          <h2 class="text-2xl font-bold">How it works</h2>
+          <ol class="mt-6 grid gap-4 md:grid-cols-3">
+            {steps.map((s, i) => (
+              <li key={s.title} class={card}>
+                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">{i + 1}</span>
+                <h3 class="mt-3 font-semibold">{s.title}</h3>
+                <p class="mt-1 text-sm text-ink-muted">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section class="my-12 rounded-2xl bg-surface p-8 text-center md:p-12">
+          <h2 class="text-2xl font-bold">Settle tonight's dinner in a minute</h2>
+          <p class="mt-2 text-ink-muted">Start a family and send the link to everyone at home.</p>
+          <div class="mt-6 flex flex-wrap justify-center gap-3">
+            <Link to="/start" class={`${btnPrimary} px-5 py-3 text-base`}>
+              Start your family
+            </Link>
+            <Link to="/join" class={`${btnQuiet} px-5 py-3 text-base`}>
+              Join a family
+            </Link>
+          </div>
+        </section>
+
+        <footer class="border-t border-line py-6 text-center text-sm text-ink-muted">🍴 Fork · Dinner, decided.</footer>
+      </div>
+    </div>
+  );
+}
+
+// ---------- start and join ----------
 
 function StartFamily({ defaultName }: { defaultName: string }) {
   const create = api.useMutation("createFamily");
@@ -101,9 +246,10 @@ function StartFamily({ defaultName }: { defaultName: string }) {
       <p class="mt-1 text-sm text-ink-muted">You'll get a link to invite everyone else.</p>
       <form
         class="mt-4 flex flex-col gap-3"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          void r.run(() => create(family, name));
+          const ok = await r.run(() => create(family, name).then(() => true));
+          if (ok) navigate("/family", { replace: true });
         }}
       >
         <input class={input} placeholder="Family name, like The Andrews" value={family} onInput={(e) => setFamily((e.target as HTMLInputElement).value)} />
@@ -114,6 +260,120 @@ function StartFamily({ defaultName }: { defaultName: string }) {
       </form>
       <ErrorLine text={r.error} />
     </div>
+  );
+}
+
+function StartSignedIn() {
+  const me = api.useQuery("me");
+  if (me === undefined) return <Loading />;
+  if (me.family) return <Redirect to="/" />;
+  return (
+    <>
+      <StartFamily defaultName={me.displayName} />
+      <p class="mt-4 text-center text-sm text-ink-muted">
+        Got an invite instead?{" "}
+        <Link to="/join" class="font-medium text-accent">
+          Join a family
+        </Link>
+      </p>
+    </>
+  );
+}
+
+function StartPage() {
+  const auth = useAuth();
+  if (auth.isLoading) return <SmallPage><Loading /></SmallPage>;
+  if (!auth.isSignedIn)
+    return (
+      <SmallPage>
+        <h1 class="text-2xl font-bold">Create your account</h1>
+        <p class="mt-2 text-ink-muted">Sign up first, then name your family and invite everyone.</p>
+        {auth.error ? <ErrorLine text={auth.error} /> : null}
+        <div class="mt-6">
+          <SignInButtons returnTo="/start" />
+        </div>
+        <p class="mt-6 text-center text-sm text-ink-muted">
+          Already have an account? The same buttons sign you in.
+        </p>
+      </SmallPage>
+    );
+  return (
+    <SmallPage>
+      <StartSignedIn />
+    </SmallPage>
+  );
+}
+
+function codeFrom(text: string): string | null {
+  const t = text.trim();
+  const fromUrl = t.match(/\/join\/([A-Za-z0-9]+)/);
+  if (fromUrl) return fromUrl[1];
+  if (/^[A-Za-z0-9]{4,40}$/.test(t)) return t;
+  return null;
+}
+
+function JoinEntry() {
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <SmallPage>
+      <h1 class="text-2xl font-bold">Join a family</h1>
+      <p class="mt-2 text-ink-muted">Paste the invite link someone sent you, or just the code at the end of it.</p>
+      <form
+        class="mt-6 flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const code = codeFrom(text);
+          if (!code) {
+            setError("That doesn't look like an invite link or code.");
+            return;
+          }
+          navigate(`/join/${code}`);
+        }}
+      >
+        <input
+          class={input}
+          placeholder="fork.space.fast/join/…"
+          value={text}
+          onInput={(e) => {
+            setText((e.target as HTMLInputElement).value);
+            setError(null);
+          }}
+        />
+        <button class={btnPrimary} disabled={!text.trim()}>
+          Continue
+        </button>
+      </form>
+      <ErrorLine text={error} />
+      <p class="mt-6 text-center text-sm text-ink-muted">
+        No invite?{" "}
+        <Link to="/start" class="font-medium text-accent">
+          Start your own family
+        </Link>
+      </p>
+    </SmallPage>
+  );
+}
+
+function JoinRoute() {
+  const auth = useAuth();
+  const loc = useLocation();
+  if (auth.isLoading) return <SmallPage><Loading /></SmallPage>;
+  if (!auth.isSignedIn)
+    return (
+      <SmallPage>
+        <h1 class="text-2xl font-bold">You're invited to a family on Fork</h1>
+        <p class="mt-2 text-ink-muted">Sign up or sign in, and you'll come right back here to join.</p>
+        {auth.error ? <ErrorLine text={auth.error} /> : null}
+        <div class="mt-6">
+          <SignInButtons returnTo={loc.pathname + loc.search} />
+        </div>
+      </SmallPage>
+    );
+  return (
+    <SmallPage>
+      <JoinPage />
+    </SmallPage>
   );
 }
 
@@ -542,66 +802,58 @@ function Tabs() {
   );
 }
 
-function Home() {
+function FamilyLayout({ children }: { children: any }) {
   const me = api.useQuery("me");
-  if (me === undefined) return <Loading />;
-  if (!me.family)
-    return (
-      <div class="flex flex-col gap-4">
-        <StartFamily defaultName={me.displayName} />
-        <p class="text-center text-sm text-ink-muted">Joining someone else's family? Open the invite link they sent you.</p>
-      </div>
-    );
-  return null;
-}
-
-function FamilyGate({ children }: { children: any }) {
-  const me = api.useQuery("me");
-  if (me === undefined) return <Loading />;
-  if (!me.family) return <Home />;
+  if (me === undefined) return <Shell><Loading /></Shell>;
+  if (!me.family) return <Redirect to="/" />;
   return (
-    <>
+    <Shell>
       <header class="mb-5 flex items-center justify-between">
         <h1 class="text-2xl font-bold">🍴 {me.family.name}</h1>
       </header>
       {children}
       <Tabs />
-    </>
-  );
-}
-
-function SignedIn() {
-  return (
-    <Shell>
-      <Routes>
-        <Route path="/join/:code" element={<JoinPage />} />
-        <Route path="/list" element={<FamilyGate><ListPage /></FamilyGate>} />
-        <Route path="/family" element={<FamilyGate><FamilyPage /></FamilyGate>} />
-        <Route path="/" element={<FamilyGate><WeekPage /></FamilyGate>} />
-        <Route path="/*rest" element={<FamilyGate><WeekPage /></FamilyGate>} />
-      </Routes>
     </Shell>
   );
 }
 
-function Gate() {
+function MemberRoute({ children }: { children: any }) {
   const auth = useAuth();
   if (auth.isLoading) return <Shell><Loading /></Shell>;
-  if (auth.error && !auth.isSignedIn)
-    return (
-      <Shell>
-        <p role="alert" class="py-10 text-center text-danger">{auth.error}</p>
-        <SignIn />
-      </Shell>
-    );
-  if (!auth.isSignedIn) return <SignIn />;
-  return <SignedIn />;
+  if (!auth.isSignedIn) return <Redirect to="/" />;
+  return <FamilyLayout>{children}</FamilyLayout>;
+}
+
+function SignedInHome() {
+  const me = api.useQuery("me");
+  if (me === undefined) return <Shell><Loading /></Shell>;
+  if (!me.family) return <Landing signedIn />;
+  return (
+    <FamilyLayout>
+      <WeekPage />
+    </FamilyLayout>
+  );
+}
+
+function HomeRoute() {
+  const auth = useAuth();
+  if (auth.isLoading) return <Shell><Loading /></Shell>;
+  if (!auth.isSignedIn) return <Landing signedIn={false} />;
+  return <SignedInHome />;
 }
 
 export default function App() {
   return (
     <Router>
-      <Gate />
+      <Routes>
+        <Route path="/start" element={<StartPage />} />
+        <Route path="/join" element={<JoinEntry />} />
+        <Route path="/join/:code" element={<JoinRoute />} />
+        <Route path="/list" element={<MemberRoute><ListPage /></MemberRoute>} />
+        <Route path="/family" element={<MemberRoute><FamilyPage /></MemberRoute>} />
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/*rest" element={<HomeRoute />} />
+      </Routes>
     </Router>
   );
 }
