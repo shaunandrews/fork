@@ -1,10 +1,9 @@
+// Fork's screens. Each URL has its own file in pages/ that renders one of these,
+// so refreshing or opening any link (like /list) loads the right screen.
 import { useEffect, useState } from "preact/hooks";
 import {
   createClient,
   Link,
-  Route,
-  Router,
-  Routes,
   SignInWithGoogle,
   SignInWithGravatar,
   SignInWithSpacefast,
@@ -280,7 +279,7 @@ function StartSignedIn() {
   );
 }
 
-function StartPage() {
+export function StartPage() {
   const auth = useAuth();
   if (auth.isLoading) return <SmallPage><Loading /></SmallPage>;
   if (!auth.isSignedIn)
@@ -312,7 +311,7 @@ function codeFrom(text: string): string | null {
   return null;
 }
 
-function JoinEntry() {
+export function JoinEntry() {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   return (
@@ -355,7 +354,7 @@ function JoinEntry() {
   );
 }
 
-function JoinRoute() {
+export function JoinRoute({ code }: { code?: string }) {
   const auth = useAuth();
   const loc = useLocation();
   if (auth.isLoading) return <SmallPage><Loading /></SmallPage>;
@@ -372,14 +371,14 @@ function JoinRoute() {
     );
   return (
     <SmallPage>
-      <JoinPage />
+      <JoinPage code={code} />
     </SmallPage>
   );
 }
 
-function JoinPage() {
+function JoinPage({ code: codeProp }: { code?: string }) {
   const params = useParams() as { code?: string };
-  const code = params.code ?? "";
+  const code = codeProp ?? params.code ?? "";
   const info = api.useQuery("inviteInfo", code);
   const me = api.useQuery("me");
   const join = api.useMutation("joinFamily");
@@ -462,13 +461,48 @@ function SuggestForm({ date, onDone }: { date: string; onDone: () => void }) {
           onInput={(e) => setIngredients((e.target as HTMLTextAreaElement).value)}
         />
       ) : (
-        <button type="button" class={`${btnGhost} self-start px-0`} onClick={() => setShowIngredients(true)}>
-          + Add ingredients
-        </button>
+        <div class="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+          <button type="button" class={`${btnGhost} px-0`} onClick={() => setShowIngredients(true)}>
+            + Add ingredients
+          </button>
+          <span>or leave it and Fork fills in a usual recipe when it knows the dish.</span>
+        </div>
       )}
       <div class="flex gap-2">
         <button class={btnPrimary} disabled={r.busy || !title.trim()}>
           Suggest
+        </button>
+        <button type="button" class={btnGhost} onClick={onDone}>
+          Cancel
+        </button>
+      </div>
+      <ErrorLine text={r.error} />
+    </form>
+  );
+}
+
+function IngredientsEditor({ suggestionId, lines, onDone }: { suggestionId: string; lines: string[]; onDone: () => void }) {
+  const save = api.useMutation("setIngredients");
+  const [text, setText] = useState(lines.join("\n"));
+  const r = useRunner();
+  return (
+    <form
+      class="mt-2 flex flex-col gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const ok = await r.run(() => save(suggestionId, text).then(() => true));
+        if (ok) onDone();
+      }}
+    >
+      <textarea
+        class={`${input} min-h-32`}
+        placeholder={"One ingredient per line\n2 lb chicken thighs\n1 onion\n3 cloves garlic"}
+        value={text}
+        onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
+      />
+      <div class="flex gap-2">
+        <button class={btnPrimary} disabled={r.busy}>
+          Save ingredients
         </button>
         <button type="button" class={btnGhost} onClick={onDone}>
           Cancel
@@ -486,6 +520,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
   const remove = api.useMutation("removeSuggestion");
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
   const r = useRunner();
   return (
     <section class={`${card} ${isToday ? "ring-2 ring-accent" : ""}`}>
@@ -545,16 +580,32 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
               </div>
               {open === s.id ? (
                 <div class="mt-2 border-t border-line pt-2 text-sm">
-                  {s.ingredients.length ? (
-                    <p class="text-ink-muted">{s.ingredients.join(", ")}</p>
+                  {editing === s.id ? (
+                    <IngredientsEditor suggestionId={s.id} lines={s.ingredientLines} onDone={() => setEditing(null)} />
                   ) : (
-                    <p class="text-ink-muted">No ingredients added.</p>
+                    <>
+                      {s.ingredientLines.length ? (
+                        <ul class="list-disc pl-5 text-ink">
+                          {s.ingredientLines.map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p class="text-ink-muted">No ingredients yet, so picking it won't add anything to the shopping list.</p>
+                      )}
+                      {s.ingredientsNote ? <p class="mt-1 text-xs text-ink-muted">{s.ingredientsNote}. Edit to match how you make it.</p> : null}
+                      <div class="mt-1 flex gap-3">
+                        <button class={`${btnGhost} px-0`} onClick={() => setEditing(s.id)}>
+                          {s.ingredientLines.length ? "Edit ingredients" : "+ Add ingredients"}
+                        </button>
+                        {s.mine || s.fromFork ? (
+                          <button class={`${btnGhost} px-0 text-danger`} onClick={() => void r.run(() => remove(s.id))}>
+                            Remove suggestion
+                          </button>
+                        ) : null}
+                      </div>
+                    </>
                   )}
-                  {s.mine || s.fromFork ? (
-                    <button class={`${btnGhost} mt-1 px-0 text-danger`} onClick={() => void r.run(() => remove(s.id))}>
-                      Remove suggestion
-                    </button>
-                  ) : null}
                 </div>
               ) : null}
             </li>
@@ -625,7 +676,7 @@ function WeekPage() {
 
 // ---------- shopping list ----------
 
-function ListPage() {
+export function ListPage() {
   const list = api.useQuery("list");
   const add = api.useMutation("addItem");
   const toggle = api.useMutation("toggleItem");
@@ -702,7 +753,7 @@ function ListPage() {
 
 // ---------- family ----------
 
-function FamilyPage() {
+export function FamilyPage() {
   const me = api.useQuery("me");
   const setMyName = api.useMutation("setMyName");
   const resetInvite = api.useMutation("resetInvite");
@@ -817,7 +868,7 @@ function FamilyLayout({ children }: { children: any }) {
   );
 }
 
-function MemberRoute({ children }: { children: any }) {
+export function MemberRoute({ children }: { children: any }) {
   const auth = useAuth();
   if (auth.isLoading) return <Shell><Loading /></Shell>;
   if (!auth.isSignedIn) return <Redirect to="/" />;
@@ -835,25 +886,9 @@ function SignedInHome() {
   );
 }
 
-function HomeRoute() {
+export function HomeRoute() {
   const auth = useAuth();
   if (auth.isLoading) return <Shell><Loading /></Shell>;
   if (!auth.isSignedIn) return <Landing signedIn={false} />;
   return <SignedInHome />;
-}
-
-export default function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/start" element={<StartPage />} />
-        <Route path="/join" element={<JoinEntry />} />
-        <Route path="/join/:code" element={<JoinRoute />} />
-        <Route path="/list" element={<MemberRoute><ListPage /></MemberRoute>} />
-        <Route path="/family" element={<MemberRoute><FamilyPage /></MemberRoute>} />
-        <Route path="/" element={<HomeRoute />} />
-        <Route path="/*rest" element={<HomeRoute />} />
-      </Routes>
-    </Router>
-  );
 }

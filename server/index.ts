@@ -1,7 +1,8 @@
 import { boolean, capsule, id, mutation, number, query, string, table, userId } from "@spacefast/zero/server";
-import { aggregateList, parseIngredient, parseIngredientList, type Ingredient } from "../shared/ingredients";
+import { aggregateList, formatAmount, parseIngredient, parseIngredientList, type Ingredient } from "../shared/ingredients";
 import { addDays, dateRange, dayName, isDate } from "../shared/dates";
 import { pickIdeas } from "../shared/ideas";
+import { matchRecipe } from "../shared/match";
 
 const schema = {
   families: table({
@@ -21,6 +22,8 @@ const schema = {
     date: string(),
     title: string(),
     ingredientsJson: string().default("[]"),
+    // Where filled-in ingredients came from, when nobody typed them.
+    ingredientsNote: string().optional(),
     byUser: string(),
     byName: string(),
     fromFork: boolean().default(false),
@@ -123,6 +126,30 @@ async function addIngredients(ctx: Ctx, familyId: string, source: string, items:
   }
 }
 
+function linesOf(items: Ingredient[]): string[] {
+  return items.map((i) => [formatAmount(i.qty, i.unit), i.name].filter(Boolean).join(" "));
+}
+
+/**
+ * Ingredients for a meal nobody listed ingredients for: the family's own most
+ * recent version of the same meal first, then the closest built-in recipe.
+ */
+async function fillIngredients(ctx: Ctx, familyId: string, title: string): Promise<{ items: Ingredient[]; note: string | null }> {
+  const want = title.trim().toLowerCase();
+  const past = await ctx.db.suggestions.withIndex("by_family_date", (r: any) => r.eq("familyId", familyId)).collect();
+  for (let i = past.length - 1; i >= 0; i--) {
+    const s = past[i];
+    if (s.fromFork || String(s.title).trim().toLowerCase() !== want) continue;
+    const items = ingredientsOf(s.ingredientsJson);
+    if (items.length && !s.ingredientsNote) return { items, note: "From the last time your family had it" };
+  }
+  const m = matchRecipe(title);
+  if (!m) return { items: [], note: null };
+  const items = m.recipe.ingredients.map((l) => parseIngredient(l)).filter((x): x is Ingredient => x !== null);
+  const same = m.recipe.title.toLowerCase() === want;
+  return { items, note: same ? "Fork's recipe" : `Based on Fork's ${m.recipe.title}` };
+}
+
 function ingredientsOf(json: string): Ingredient[] {
   try {
     const v = JSON.parse(json);
@@ -184,6 +211,8 @@ export default capsule({
               votes: v.length,
               iVoted: v.some((x) => x.userId === me.userId),
               ingredients: ingredientsOf(s.ingredientsJson as string).map((i) => i.name),
+              ingredientLines: linesOf(ingredientsOf(s.ingredientsJson as string)),
+              ingredientsNote: (s.ingredientsNote as string | undefined) ?? null,
               createdAt: s.createdAt,
             };
           })
@@ -272,12 +301,30 @@ export default capsule({
       const d = needDate(date);
       const t = clean(title, 80);
       if (!t) throw new Error("What's the meal?");
-      const ingredients = parseIngredientList(String(ingredientsText ?? "").slice(0, 4000)).slice(0, 60);
+      let ingredients = parseIngredientList(String(ingredientsText ?? "").slice(0, 4000)).slice(0, 60);
+      let note: string | null = null;
+      if (!ingredients.length) ({ items: ingredients, note } = await fillIngredients(ctx as any, familyId, t));
       await ctx.db.suggestions.insert({
         familyId, date: d, title: t, ingredientsJson: JSON.stringify(ingredients),
+        ...(note ? { ingredientsNote: note } : {}),
         byUser: me.userId, byName: member.displayName, fromFork: false,
       });
       ctx.invalidate("week");
+    }),
+
+    setIngredients: mutation(async (ctx, suggestionId: string, ingredientsText: string) => {
+      const { familyId } = await requireFamily(ctx as any);
+      const s = await ctx.db.suggestions.get(suggestionId);
+      if (!s || s.familyId !== familyId) throw new Error("That suggestion is gone.");
+      const ingredients = parseIngredientList(String(ingredientsText ?? "").slice(0, 4000)).slice(0, 60);
+      await ctx.db.suggestions.update(s.id, { ingredientsJson: JSON.stringify(ingredients), ingredientsNote: null });
+      // If it's tonight's pick, the shopping list follows the edit.
+      const plan = await getPlan(ctx as any, familyId, s.date);
+      if (plan && plan.pickedSuggestionId === s.id) {
+        await clearSource(ctx as any, familyId, s.date);
+        await addIngredients(ctx as any, familyId, s.date, ingredients);
+      }
+      ctx.invalidate("week", "list");
     }),
 
     removeSuggestion: mutation(async (ctx, suggestionId: string) => {
@@ -327,7 +374,16 @@ export default capsule({
         const s = await ctx.db.suggestions.get(suggestionId);
         if (!s || s.familyId !== familyId || s.date !== d) throw new Error("That suggestion is gone.");
         await ctx.db.dayPlans.update(plan.id, { pickedSuggestionId: s.id, pickedTitle: s.title });
-        await addIngredients(ctx as any, familyId, d, ingredientsOf(s.ingredientsJson));
+        let items = ingredientsOf(s.ingredientsJson);
+        if (!items.length) {
+          // Older suggestions saved without ingredients get filled in when picked.
+          const filled = await fillIngredients(ctx as any, familyId, s.title);
+          if (filled.items.length) {
+            items = filled.items;
+            await ctx.db.suggestions.update(s.id, { ingredientsJson: JSON.stringify(items), ingredientsNote: filled.note });
+          }
+        }
+        await addIngredients(ctx as any, familyId, d, items);
       }
       ctx.invalidate("week", "list");
     }),
