@@ -1,0 +1,7 @@
+{
+  "runtime": {
+    "kind": "zero",
+    "server": "server/index.ts",
+    "client": "client/index.tsx"
+  }
+}

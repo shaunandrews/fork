@@ -1,55 +1,10 @@
-# 🍴 Fork
+# Fork
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+A family meal planner on Spacefast (Zero runtime).
 
-**What's for dinner?** Fork helps families decide without the nightly negotiation.
+- Start a family and invite everyone with a link.
+- Each day: suggest meals, vote, and tap "I'll cook" to be the chef.
+- Plan ahead: fill empty days with ideas from a built-in recipe library (and your family's past picks).
+- Pick a meal for a day and its ingredients land on one shared shopping list: amounts combined, grouped by aisle, ticked off live.
 
-Family members suggest meals, vote on what sounds good, and whoever's cooking picks the winner. Everyone gets notified. Dinner: decided.
-
-## Screenshots
-
-<p align="center">
-  <img src="screenshots/01-today.jpg" width="250" alt="Today view - see who's cooking" />
-  <img src="screenshots/02-meals.jpg" width="250" alt="Meals list - suggest and vote" />
-  <img src="screenshots/03-family.jpg" width="250" alt="Family management - invite members" />
-</p>
-
-## How It Works
-
-1. **Create a family** — invite your household via link or code
-2. **Suggest meals** — anyone can add ideas anytime
-3. **Vote** — heart meals that sound good
-4. **Volunteer to cook** — claim a day you want to be chef
-5. **Chef picks** — choose from suggestions, informed by votes
-6. **Everyone knows** — push notification when dinner is decided
-
-## Core Principles
-
-- **Simple over feature-rich** — this is a decision tool, not a recipe manager
-- **Low friction** — suggesting a meal takes 5 seconds
-- **The cook decides** — votes are influence, not binding
-- **Everyone participates** — even the kids
-
-## Tech Stack
-
-- React 19 + Vite
-- Firebase (Auth, Firestore)
-- PWA-ready (mobile-first, push notifications)
-
-## Development
-
-```bash
-cd app
-npm install
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) to view it in your browser.
-
-## Status
-
-🚧 MVP in progress
-
----
-
-*Built with love (and hunger) by the Andrews family.*
+Code: `server/index.ts` (data and handlers), `client/index.tsx` (app), `shared/` (ingredient parsing, list merging, dates, ideas).
