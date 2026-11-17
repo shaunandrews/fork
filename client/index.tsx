@@ -74,7 +74,7 @@ export function ErrorLine({ text }: { text: string | null }) {
 }
 
 export { btn, btnGhost, btnPrimary, btnQuiet, card, input } from "./ui";
-import { AisleGroup, Button, DayPlan, EmptyState, ListRow, SuggestionRow, VoteButton, btnGhost, btnPrimary, btnQuiet, card, input, textLinkClass as textLink } from "./ui";
+import { AisleGroup, Button, DayPlan, EmptyState, Field, Input, ListRow, Sheet, SuggestionRow, Textarea, sheetAction, VoteButton, btnGhost, btnPrimary, btnQuiet, card, input, textLinkClass as textLink } from "./ui";
 
 function Shell({ children }: { children: any }) {
   return (
@@ -483,50 +483,44 @@ function JoinPage({ code: codeProp }: { code?: string }) {
 
 type Day = NonNullable<ReturnType<typeof api.useQuery<"week">>>[number];
 
-function SuggestForm({ date, onDone }: { date: string; onDone: () => void }) {
+function SuggestSheet({ date, dayLabel, onDone }: { date: string; dayLabel: string; onDone: () => void }) {
   const suggest = api.useMutation("suggestMeal");
   const [title, setTitle] = useState("");
   const [ingredients, setIngredients] = useState("");
-  const [showIngredients, setShowIngredients] = useState(false);
   const r = useRunner();
+  const submit = async (e: Event) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const ok = await r.run(() => suggest(date, title, ingredients).then(() => true));
+    if (ok) onDone();
+  };
   return (
-    <form
-      class="mt-3 flex flex-col gap-2"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const ok = await r.run(() => suggest(date, title, ingredients).then(() => true));
-        if (ok) {
-          setTitle("");
-          setIngredients("");
-          onDone();
+    <form onSubmit={submit}>
+      <Sheet
+        title="Suggest a meal"
+        subtitle={dayLabel}
+        onClose={onDone}
+        actions={
+          <>
+            <Button type="button" variant="secondary" class={sheetAction} onClick={onDone}>
+              Cancel
+            </Button>
+            <Button class={sheetAction} disabled={r.busy || !title.trim()}>
+              Suggest
+            </Button>
+          </>
         }
-      }}
-    >
-      <input class={input} placeholder="What should we have?" value={title} onInput={(e) => setTitle((e.target as HTMLInputElement).value)} />
-      {showIngredients ? (
-        <textarea
-          class={`${input} min-h-24`}
-          placeholder={"One ingredient per line\n2 lb chicken thighs\n1 onion\n3 cloves garlic"}
-          value={ingredients}
-          onInput={(e) => setIngredients((e.target as HTMLTextAreaElement).value)}
-        />
-      ) : (
-        <div class="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
-          <button type="button" class={`${btnGhost} px-0`} onClick={() => setShowIngredients(true)}>
-            + Add ingredients
-          </button>
-          <span>or leave it and Fork fills in a usual recipe when it knows the dish.</span>
+      >
+        <div class="flex flex-col gap-5">
+          <Field label="What should we have?">
+            <Input autoFocus placeholder="Chicken parm" value={title} onInput={(e: any) => setTitle(e.target.value)} />
+          </Field>
+          <Field label="Ingredients (optional)" hint="One per line. Leave it empty and Fork fills in a usual recipe when it knows the dish.">
+            <Textarea placeholder={"2 lb chicken thighs\n1 onion\n3 cloves garlic"} value={ingredients} onInput={(e: any) => setIngredients(e.target.value)} />
+          </Field>
+          <ErrorLine text={r.error} />
         </div>
-      )}
-      <div class="flex gap-2">
-        <button class={btnPrimary} disabled={r.busy || !title.trim()}>
-          Suggest
-        </button>
-        <button type="button" class={btnGhost} onClick={onDone}>
-          Cancel
-        </button>
-      </div>
-      <ErrorLine text={r.error} />
+      </Sheet>
     </form>
   );
 }
@@ -591,15 +585,10 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
       }
       footer={
         <>
-          {adding ? (
-            <div class="pt-2">
-              <SuggestForm date={day.date} onDone={() => setAdding(false)} />
-            </div>
-          ) : (
-            <Button variant="ghost" size="sm" class="-ml-3" onClick={() => setAdding(true)}>
-              + Suggest a meal
-            </Button>
-          )}
+          <Button variant="ghost" size="sm" class="-ml-3" onClick={() => setAdding(true)}>
+            + Suggest a meal
+          </Button>
+          {adding ? <SuggestSheet date={day.date} dayLabel={`${isToday ? "Today" : dayName(day.date)}, ${shortDate(day.date)}`} onDone={() => setAdding(false)} /> : null}
           <ErrorLine text={r.error} />
         </>
       }

@@ -17,7 +17,7 @@ export function DevBadge() {
     <a
       href="/dev"
       data-dev-badge
-      class="fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-action py-2 pl-3 pr-4 text-[13px] font-medium text-on-action shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)] hover:opacity-90 lg:bottom-4"
+      class="fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full bg-action py-2 pl-3 pr-4 text-[13px] font-medium text-on-action shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)] hover:opacity-90 lg:bottom-4"
     >
       <span class="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
       <span>

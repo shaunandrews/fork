@@ -17,6 +17,8 @@ import {
   MealTile,
   SearchField,
   SectionHeading,
+  Sheet,
+  sheetAction,
   SuggestionRow,
   Tag,
   TextLink,
@@ -338,6 +340,19 @@ function Molecules({ mode }: { mode: Mode }) {
 function Organisms({ mode }: { mode: Mode }) {
   return (
     <Level id="organisms" title="Organisms" intro="Sections of a screen, built from molecules. These are the same components the Week and Shopping list screens render.">
+      <Specimen id="sheet" name="Sheet" mode={mode} usage="A focused task over the screen, like suggesting a meal. Slides up from the bottom on phones, a centered dialog from 768px. Title and the day it's for, the fields, then Cancel and one primary action.">
+        <Sheet inline title="Suggest a meal" subtitle="Today, Nov 11" onClose={() => {}} actions={<><Button variant="secondary" class={sheetAction}>Cancel</Button><Button class={sheetAction}>Suggest</Button></>}>
+          <div class="flex flex-col gap-5">
+            <Field label="What should we have?">
+              <Input placeholder="Chicken parm" />
+            </Field>
+            <Field label="Ingredients (optional)" hint="One per line. Leave it empty and Fork fills in a usual recipe when it knows the dish.">
+              <Textarea placeholder={"2 lb chicken thighs\n1 onion"} />
+            </Field>
+          </div>
+        </Sheet>
+      </Specimen>
+
       <Specimen id="day-plan" name="Day plan" mode={mode} usage="One day on the Week screen. Who's cooking, the ideas, and a way to add one.">
         <div class="flex flex-col gap-8">
           <DayPlan day="Today" date="Nov 11" isToday chef="You're cooking" chefAction={<Button variant="ghost" size="sm">Step down</Button>} footer={<Button variant="ghost" size="sm" class="-ml-3">+ Suggest a meal</Button>}>

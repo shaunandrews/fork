@@ -326,6 +326,7 @@ Flat. There is one shadow, for things that float over content: sheets, menus, th
 ## Components
 
 - **Buttons:** primary is a solid ink pill (`button-primary`), 48px tall. Secondary is a hairline pill. Tertiary is text only. One primary per screen.
+- **Sheet:** a focused task (suggest a meal) opens in a sheet, never inline in a list. Bottom sheet on phones (20px top corners, grab handle, safe-area padding), centered 520px dialog from 768px. Scrim at 40%. Title in display type with the day under it, labelled fields, then Cancel (secondary) and one primary, full width side by side on phones. Esc, the scrim, or Cancel closes it.
 - **Meal hero:** full-bleed photo, then the meal name in `display-lg`, then one meta line ("Sam is cooking · 3 votes"), then the primary action.
 - **Meal card:** photo (4:3) + `title` + one `body-sm` meta line. No border, no fill, no shadow. The whole card is the tap target.
 - **Vote button:** hairline pill with a tabular count. Active state fills Basil Soft with a Basil border and text.

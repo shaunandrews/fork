@@ -3,9 +3,10 @@
 //
 //   Atoms      Button, TextLink, Input, Textarea, Tag, VoteButton, CheckCircle, Thumb, Icon
 //   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, EmptyState, SectionHeading
-//   Organisms  DayPlan, AisleGroup
+//   Organisms  DayPlan, AisleGroup, Sheet
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
+import { useEffect } from "preact/hooks";
 import { MealImage, caption, displayMd } from "./layout";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -397,6 +398,70 @@ export function AisleGroup({ aisle, children }: { aisle: string; children: any }
     <div class="mb-6 last:mb-0" data-component="AisleGroup">
       <p class={caption}>{aisle}</p>
       <ul class="mt-1">{children}</ul>
+    </div>
+  );
+}
+
+/** Class for each button in a Sheet's action row: equal widths on phones, natural width on desktop. */
+export const sheetAction = "flex-1 md:flex-none";
+
+/**
+ * A focused task over the screen: a bottom sheet on phones, a centered dialog from 768px.
+ * Title, body, then one row of actions at the bottom. Esc, the scrim, or Cancel closes it.
+ * `inline` renders just the panel in place, for the component library.
+ */
+export function Sheet({
+  title,
+  subtitle,
+  onClose,
+  actions,
+  inline,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  /** Buttons for the bottom row. Give each `class={sheetAction}` so they share the width on phones. */
+  actions?: any;
+  inline?: boolean;
+  children: any;
+}) {
+  useEffect(() => {
+    if (inline) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      removeEventListener("keydown", onKey);
+    };
+  }, [inline]);
+  const panel = (
+    <div
+      role="dialog"
+      aria-modal={inline ? undefined : "true"}
+      aria-label={title}
+      class={cx(
+        "flex w-full flex-col bg-canvas text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.08)] dark:border dark:border-line dark:shadow-none",
+        inline ? "rounded-[20px]" : "max-h-[92dvh] rounded-t-[20px] md:max-w-[520px] md:rounded-[20px]",
+      )}
+      data-component="Sheet"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {inline ? null : <div class="mx-auto mt-2 h-1 w-9 rounded-full bg-line md:hidden" aria-hidden="true" />}
+      <header class="px-5 pb-2 pt-5 md:px-6 md:pt-6">
+        <h2 class="font-display text-[26px] font-medium leading-tight tracking-[-0.01em]">{title}</h2>
+        {subtitle ? <p class="mt-1 text-[15px] text-ink-muted">{subtitle}</p> : null}
+      </header>
+      <div class="flex-1 overflow-y-auto px-5 py-3 md:px-6">{children}</div>
+      {actions ? <footer class="flex gap-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 md:justify-end md:px-6 md:pb-6">{actions}</footer> : null}
+    </div>
+  );
+  if (inline) return panel;
+  return (
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-6" onClick={onClose}>
+      {panel}
     </div>
   );
 }
