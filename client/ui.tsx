@@ -3,10 +3,12 @@
 //
 //   Atoms      Button, TextLink, Input, Textarea, Tag, VoteButton, CheckCircle, Thumb, Icon
 //   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, EmptyState, SectionHeading
-//   Organisms  DayPlan, AisleGroup, Sheet
+//   Organisms  DayPlan, AisleGroup, Sheet (shadcn/ui Drawer + Dialog, in components/ui/)
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
 import { MealImage, caption, displayMd } from "./layout";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -405,63 +407,76 @@ export function AisleGroup({ aisle, children }: { aisle: string; children: any }
 /** Class for each button in a Sheet's action row: equal widths on phones, natural width on desktop. */
 export const sheetAction = "flex-1 md:flex-none";
 
+/** True from 768px up, the same breakpoint as `md:`. */
+function useDesktop() {
+  const query = "(min-width: 768px)";
+  const [desktop, setDesktop] = useState(() => typeof matchMedia !== "undefined" && matchMedia(query).matches);
+  useEffect(() => {
+    const m = matchMedia(query);
+    const on = () => setDesktop(m.matches);
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  return desktop;
+}
+
 /**
- * A focused task over the screen: a bottom sheet on phones, a centered dialog from 768px.
- * Title, body, then one row of actions at the bottom. Esc, the scrim, or Cancel closes it.
- * `inline` renders just the panel in place, for the component library.
+ * A focused task over the screen, from shadcn/ui (Base UI underneath): a drag-to-dismiss
+ * bottom Drawer on phones, a centered Dialog from 768px. Title and subtitle, the body, then
+ * one row of actions. Swipe down, Esc, the scrim, or Cancel closes it.
  */
 export function Sheet({
+  open = true,
   title,
   subtitle,
   onClose,
   actions,
-  inline,
+  onSubmit,
   children,
 }: {
+  open?: boolean;
+  /** Makes the body and actions one form (the sheet renders in a portal, so a form around it wouldn't hold the buttons). */
+  onSubmit?: (e: Event) => void;
   title: string;
   subtitle?: string;
   onClose: () => void;
   /** Buttons for the bottom row. Give each `class={sheetAction}` so they share the width on phones. */
   actions?: any;
-  inline?: boolean;
   children: any;
 }) {
-  useEffect(() => {
-    if (inline) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = overflow;
-      removeEventListener("keydown", onKey);
-    };
-  }, [inline]);
-  const panel = (
-    <div
-      role="dialog"
-      aria-modal={inline ? undefined : "true"}
-      aria-label={title}
-      class={cx(
-        "flex w-full flex-col bg-canvas text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.08)] dark:border dark:border-line dark:shadow-none",
-        inline ? "rounded-[20px]" : "max-h-[92dvh] rounded-t-[20px] md:max-w-[520px] md:rounded-[20px]",
-      )}
-      data-component="Sheet"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {inline ? null : <div class="mx-auto mt-2 h-1 w-9 rounded-full bg-line md:hidden" aria-hidden="true" />}
-      <header class="px-5 pb-2 pt-5 md:px-6 md:pt-6">
-        <h2 class="font-display text-[26px] font-medium leading-tight tracking-[-0.01em]">{title}</h2>
-        {subtitle ? <p class="mt-1 text-[15px] text-ink-muted">{subtitle}</p> : null}
-      </header>
-      <div class="flex-1 overflow-y-auto px-5 py-3 md:px-6">{children}</div>
-      {actions ? <footer class="flex gap-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 md:justify-end md:px-6 md:pb-6">{actions}</footer> : null}
-    </div>
-  );
-  if (inline) return panel;
+  const desktop = useDesktop();
+  const onOpenChange = (next: boolean) => !next && onClose();
+  const heading = "font-display text-[26px] font-medium leading-tight tracking-[-0.01em] text-ink";
+  const sub = "text-[15px] text-ink-muted";
+  // A tag name, not a component made here, so typing never remounts the fields.
+  const Body: any = onSubmit ? "form" : "div";
+  if (desktop)
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="gap-0 rounded-[20px] bg-canvas p-0 text-ink sm:max-w-[520px]" data-component="Sheet">
+          <DialogHeader className="px-6 pb-2 pt-6">
+            <DialogTitle className={heading}>{title}</DialogTitle>
+            {subtitle ? <DialogDescription className={sub}>{subtitle}</DialogDescription> : null}
+          </DialogHeader>
+          <Body class="flex flex-col" onSubmit={onSubmit}>
+            <div class="px-6 py-3">{children}</div>
+            {actions ? <div class="flex justify-end gap-2 px-6 pb-6 pt-3">{actions}</div> : null}
+          </Body>
+        </DialogContent>
+      </Dialog>
+    );
   return (
-    <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center md:p-6" onClick={onClose}>
-      {panel}
-    </div>
+    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
+      <DrawerContent className="rounded-t-[20px] bg-canvas text-ink" data-component="Sheet">
+        <DrawerHeader className="px-5 pb-2 pt-3 text-left">
+          <DrawerTitle className={heading}>{title}</DrawerTitle>
+          {subtitle ? <DrawerDescription className={sub}>{subtitle}</DrawerDescription> : null}
+        </DrawerHeader>
+        <Body class="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
+          <div class="flex-1 overflow-y-auto px-5 py-3">{children}</div>
+          {actions ? <DrawerFooter className="flex-row gap-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">{actions}</DrawerFooter> : null}
+        </Body>
+      </DrawerContent>
+    </Drawer>
   );
 }
