@@ -130,7 +130,12 @@ import {
   ListRow,
   Sheet,
   SuggestionRow,
+  Select,
+  SectionHeading,
+  Confirm,
+  PersonRow,
   Textarea,
+  buttonClass,
   sheetAction,
   VoteButton,
   btnGhost,
@@ -269,7 +274,7 @@ function Landing({ signedIn }: { signedIn: boolean }) {
             someone says "I'll cook," and the groceries land on one shared list.
           </p>
           <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
-            <Link to="/start" class={btnPrimary}>
+            <Link to="/start" class={buttonClass("primary")}>
               Start your family
             </Link>
             <Link to="/join" class={textLink}>
@@ -457,10 +462,10 @@ function Landing({ signedIn }: { signedIn: boolean }) {
           Tonight's dinner, settled in a minute.
         </h2>
         <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
-          <Link to="/start" class={btnPrimary}>
+          <Link to="/start" class={buttonClass("primary")}>
             Start your family
           </Link>
-          <Link to="/join" class={btnQuiet}>
+          <Link to="/join" class={buttonClass("secondary")}>
             Join with an invite
           </Link>
         </div>
@@ -490,21 +495,21 @@ function StartFamily({ defaultName }: { defaultName: string }) {
           if (ok) navigate("/family", { replace: true });
         }}
       >
-        <input
-          class={input}
+        <Input
+          
           placeholder="Family name, like The Andrews"
           value={family}
           onInput={(e) => setFamily((e.target as HTMLInputElement).value)}
         />
-        <input
-          class={input}
+        <Input
+          
           placeholder="Your name"
           value={name}
           onInput={(e) => setName((e.target as HTMLInputElement).value)}
         />
-        <button class={btnPrimary} disabled={r.busy || !family.trim()}>
+        <Button disabled={r.busy || !family.trim()}>
           Start family
-        </button>
+        </Button>
       </form>
       <ErrorLine text={r.error} />
     </div>
@@ -588,8 +593,8 @@ export function JoinEntry() {
           navigate(`/join/${code}`);
         }}
       >
-        <input
-          class={input}
+        <Input
+          
           placeholder="fork.space.fast/join/…"
           value={text}
           onInput={(e) => {
@@ -597,9 +602,9 @@ export function JoinEntry() {
             setError(null);
           }}
         />
-        <button class={btnPrimary} disabled={!text.trim()}>
+        <Button disabled={!text.trim()}>
           Continue
-        </button>
+        </Button>
       </form>
       <ErrorLine text={error} />
       <p class="mt-8 text-[15px] text-ink-muted">
@@ -657,7 +662,7 @@ function JoinPage({ code: codeProp }: { code?: string }) {
           title="This invite link doesn't work"
           intro="Ask whoever sent it for a fresh one."
         />
-        <Link to="/" class={btnQuiet}>
+        <Link to="/" class={buttonClass("secondary")}>
           Go home
         </Link>
       </div>
@@ -666,7 +671,7 @@ function JoinPage({ code: codeProp }: { code?: string }) {
     return (
       <div>
         <AuthHeading title={`You're already in ${info.name}`} />
-        <Link to="/" class={btnPrimary}>
+        <Link to="/" class={buttonClass("primary")}>
           Open this week
         </Link>
       </div>
@@ -686,15 +691,15 @@ function JoinPage({ code: codeProp }: { code?: string }) {
           if (ok) navigate("/", { replace: true });
         }}
       >
-        <input
-          class={input}
+        <Input
+          
           placeholder="Your name"
           value={shownName}
           onInput={(e) => setName((e.target as HTMLInputElement).value)}
         />
-        <button class={btnPrimary} disabled={r.busy}>
+        <Button disabled={r.busy}>
           Join family
-        </button>
+        </Button>
       </form>
       <ErrorLine text={r.error} />
     </div>
@@ -735,7 +740,7 @@ function SuggestSheet({
       actions={
         <>
           <Button
-            type="button"
+           type="button"
             variant="secondary"
             class={sheetAction}
             onClick={onDone}
@@ -774,10 +779,12 @@ function SuggestSheet({
 }
 
 function IngredientsEditor({
+  title,
   suggestionId,
   lines,
   onDone,
 }: {
+  title: string;
   suggestionId: string;
   lines: string[];
   onDone: () => void;
@@ -786,32 +793,39 @@ function IngredientsEditor({
   const [text, setText] = useState(lines.join("\n"));
   const r = useRunner();
   return (
-    <form
-      class="mt-2 flex flex-col gap-2"
+    <Sheet
+      title={lines.length ? "Edit ingredients" : "Add ingredients"}
+      subtitle={title}
+      onClose={onDone}
       onSubmit={async (e) => {
         e.preventDefault();
         const ok = await r.run(() => save(suggestionId, text).then(() => true));
         if (ok) onDone();
       }}
+      actions={
+        <>
+          <Button type="button" variant="secondary" class={sheetAction} onClick={onDone}>
+            Cancel
+          </Button>
+          <Button class={sheetAction} disabled={r.busy}>
+            Save
+          </Button>
+        </>
+      }
     >
-      <textarea
-        class={`${input} min-h-32`}
-        placeholder={
-          "One ingredient per line\n2 lb chicken thighs\n1 onion\n3 cloves garlic"
-        }
-        value={text}
-        onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
-      />
-      <div class="flex gap-2">
-        <button class={btnPrimary} disabled={r.busy}>
-          Save ingredients
-        </button>
-        <button type="button" class={btnGhost} onClick={onDone}>
-          Cancel
-        </button>
+      <div class="flex flex-col gap-3">
+        <Field label="Ingredients" hint="One per line.">
+          <Textarea
+            autoFocus
+            class="min-h-40"
+            placeholder={"2 lb chicken thighs\n1 onion\n3 cloves garlic"}
+            value={text}
+            onInput={(e: any) => setText(e.target.value)}
+          />
+        </Field>
+        <ErrorLine text={r.error} />
       </div>
-      <ErrorLine text={r.error} />
-    </form>
+    </Sheet>
   );
 }
 
@@ -839,7 +853,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
       chefAction={
         day.iAmChef ? (
           <Button
-            variant="ghost"
+           variant="ghost"
             size="sm"
             onClick={() => void r.run(() => chef(day.date, false))}
           >
@@ -847,7 +861,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
           </Button>
         ) : (
           <Button
-            variant="secondary"
+           variant="secondary"
             size="sm"
             onClick={() => void r.run(() => chef(day.date, true))}
           >
@@ -858,7 +872,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
       footer={
         <>
           <Button
-            variant="ghost"
+           variant="ghost"
             size="sm"
             class="-ml-3"
             onClick={() => setAdding(true)}
@@ -892,11 +906,12 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
             >
               {editing === s.id ? (
                 <IngredientsEditor
+                  title={s.title}
                   suggestionId={s.id}
                   lines={s.ingredientLines}
                   onDone={() => setEditing(null)}
                 />
-              ) : (
+              ) : null}
                 <div class="text-[15px]">
                   {s.ingredientLines.length ? (
                     <ul class="columns-1 gap-6 sm:columns-2">
@@ -919,7 +934,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                   ) : null}
                   <div class="mt-2 flex flex-wrap gap-x-1">
                     <Button
-                      variant="ghost"
+                     variant="ghost"
                       size="sm"
                       class="-ml-3"
                       onClick={() => setEditing(s.id)}
@@ -930,7 +945,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                     </Button>
                     {s.recipeSlug ? (
                       <Button
-                        variant="ghost"
+                       variant="ghost"
                         size="sm"
                         to={`/recipe/${s.recipeSlug}`}
                       >
@@ -939,7 +954,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                     ) : null}
                     {s.mine || s.fromFork ? (
                       <Button
-                        variant="ghost"
+                       variant="ghost"
                         size="sm"
                         class="text-danger hover:text-danger"
                         onClick={() => void r.run(() => remove(s.id))}
@@ -949,7 +964,6 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                     ) : null}
                   </div>
                 </div>
-              )}
             </SuggestionRow>
           ))
         : null}
@@ -976,8 +990,8 @@ function WeekPage() {
       actions={
         <>
           <div class="flex items-center">
-            <button
-              class={btnGhost}
+            <Button
+             variant="ghost"
               disabled={offset <= 0}
               onClick={() => setOffset(offset - 1)}
               aria-label="Previous week"
@@ -997,9 +1011,9 @@ function WeekPage() {
                   stroke-linejoin="round"
                 />
               </svg>
-            </button>
-            <button
-              class={btnGhost}
+            </Button>
+            <Button
+             variant="ghost"
               onClick={() => setOffset(offset + 1)}
               aria-label="Next week"
             >
@@ -1018,10 +1032,10 @@ function WeekPage() {
                   stroke-linejoin="round"
                 />
               </svg>
-            </button>
+            </Button>
           </div>
-          <button
-            class={btnQuiet}
+          <Button
+           variant="secondary"
             disabled={r.busy}
             onClick={async () => {
               setNote(null);
@@ -1035,7 +1049,7 @@ function WeekPage() {
             }}
           >
             Fill empty days
-          </button>
+          </Button>
         </>
       }
     >
@@ -1056,12 +1070,15 @@ function WeekPage() {
 
 // ---------- meals ----------
 
+/** "Plan for a day": pick one of the next seven days and suggest this meal there. */
 export function SuggestOnDay({
   title,
   onDone,
+  onClose,
 }: {
   title: string;
   onDone: (note: string) => void;
+  onClose: () => void;
 }) {
   const suggest = api.useMutation("suggestMeal");
   const today = todayLocal();
@@ -1069,39 +1086,39 @@ export function SuggestOnDay({
   const [date, setDate] = useState(today);
   const r = useRunner();
   return (
-    <div class="mt-2 flex flex-wrap items-center gap-2">
-      <select
-        class={`${input} w-auto`}
-        value={date}
-        onChange={(e) => setDate((e.target as HTMLSelectElement).value)}
-      >
-        {days.map((d, i) => (
-          <option key={d} value={d}>
-            {i === 0
-              ? "Today"
-              : i === 1
-                ? "Tomorrow"
-                : `${dayName(d)} ${shortDate(d)}`}
-          </option>
-        ))}
-      </select>
-      <button
-        class={btnPrimary}
-        disabled={r.busy}
-        onClick={async () => {
-          const ok = await r.run(() =>
-            suggest(date, title, "").then(() => true),
-          );
-          if (ok)
-            onDone(
-              `Suggested ${title} for ${date === today ? "today" : `${dayName(date)} ${shortDate(date)}`}.`,
-            );
-        }}
-      >
-        Suggest
-      </button>
-      <ErrorLine text={r.error} />
-    </div>
+    <Sheet
+      title="Plan for a day"
+      subtitle={title}
+      onClose={onClose}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const ok = await r.run(() => suggest(date, title, "").then(() => true));
+        if (ok) onDone(`Suggested ${title} for ${date === today ? "today" : `${dayName(date)} ${shortDate(date)}`}.`);
+      }}
+      actions={
+        <>
+          <Button type="button" variant="secondary" class={sheetAction} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button class={sheetAction} disabled={r.busy}>
+            Suggest
+          </Button>
+        </>
+      }
+    >
+      <div class="flex flex-col gap-3">
+        <Field label="Which day?">
+          <Select value={date} onChange={(e: any) => setDate(e.target.value)}>
+            {days.map((d, i) => (
+              <option key={d} value={d}>
+                {i === 0 ? "Today" : i === 1 ? "Tomorrow" : `${dayName(d)} ${shortDate(d)}`}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <ErrorLine text={r.error} />
+      </div>
+    </Sheet>
   );
 }
 
@@ -1126,15 +1143,15 @@ export function ListPage() {
           if (ok) setText("");
         }}
       >
-        <input
-          class={input}
+        <Input
+          
           placeholder="Add an item, like 2 lb apples"
           value={text}
           onInput={(e) => setText((e.target as HTMLInputElement).value)}
         />
-        <button class={btnPrimary} disabled={r.busy || !text.trim()}>
+        <Button disabled={r.busy || !text.trim()}>
           Add
-        </button>
+        </Button>
       </form>
       <ErrorLine text={r.error} />
 
@@ -1144,7 +1161,7 @@ export function ListPage() {
         </span>
         {list.done > 0 ? (
           <Button
-            variant="ghost"
+           variant="ghost"
             size="sm"
             onClick={() => void r.run(() => clearChecked())}
           >
@@ -1191,25 +1208,20 @@ export function FamilyPage() {
   const resetInvite = api.useMutation("resetInvite");
   const [name, setName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const r = useRunner();
   if (me === undefined || !me.family) return <Loading />;
   const link = `${location.origin}/join/${me.family.inviteCode}`;
   return (
     <div class="flex flex-col gap-10">
-      <section class="border-t border-line pt-6 first:border-0 first:pt-0">
-        <h2 class={displayMd}>Invite your family</h2>
-        <p class="mt-1 text-sm text-ink-muted">
-          Anyone with this link can join {me.family.name} after they sign in.
-        </p>
-        <div class="mt-3 flex gap-2">
-          <input
-            class={input}
-            readOnly
-            value={link}
-            onFocus={(e) => (e.target as HTMLInputElement).select()}
-          />
-          <button
-            class={btnPrimary}
+      <section>
+        <SectionHeading title="Invite your family" />
+        <p class="text-[15px] text-ink-muted">Anyone with this link can join {me.family.name} after they sign in.</p>
+        <div class="mt-4 flex gap-2">
+          <Input readOnly aria-label="Invite link" value={link} onFocus={(e: any) => e.target.select()} />
+          <Button
+            type="button"
+            class="h-12"
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(link);
@@ -1221,57 +1233,59 @@ export function FamilyPage() {
             }}
           >
             {copied ? "Copied" : "Copy"}
-          </button>
+          </Button>
         </div>
         {me.family.isOwner ? (
-          <button
-            class={`${btnGhost} mt-2 px-0`}
-            onClick={() => void r.run(() => resetInvite())}
-          >
-            Make a new link (the old one stops working)
-          </button>
+          <Button type="button" variant="ghost" size="sm" class="-ml-3 mt-2" onClick={() => setConfirmReset(true)}>
+            Make a new link
+          </Button>
+        ) : null}
+        {confirmReset ? (
+          <Confirm
+            title="Make a new invite link?"
+            body="The old link stops working. Anyone who already joined stays in the family."
+            action="Make a new link"
+            busy={r.busy}
+            onClose={() => setConfirmReset(false)}
+            onConfirm={() => void r.run(() => resetInvite()).then(() => setConfirmReset(false))}
+          />
         ) : null}
       </section>
 
-      <section class="border-t border-line pt-6 first:border-0 first:pt-0">
-        <h2 class={displayMd}>{me.family.name}</h2>
-        <ul class="mt-2 flex flex-col gap-1 text-sm">
+      <section>
+        <SectionHeading title={me.family.name} />
+        <ul class="border-t border-line">
           {me.members.map((m) => (
-            <li key={m.name + String(m.isMe)}>
-              {m.name}
-              {m.isMe ? <span class="text-ink-muted"> (you)</span> : null}
-              {m.isOwner ? (
-                <span class="text-ink-muted"> · started the family</span>
-              ) : null}
-            </li>
+            <PersonRow
+              key={m.name + String(m.isMe)}
+              name={m.isMe ? `${m.name} (you)` : m.name}
+              meta={m.isOwner ? "Started the family" : undefined}
+            />
           ))}
         </ul>
       </section>
 
-      <section class="border-t border-line pt-6 first:border-0 first:pt-0">
-        <h2 class={displayMd}>Your name</h2>
+      <section>
+        <SectionHeading title="Your name" />
         <form
-          class="mt-3 flex gap-2"
+          class="flex gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             void r.run(() => setMyName(name ?? me.displayName));
           }}
         >
-          <input
-            class={input}
-            value={name ?? me.displayName}
-            onInput={(e) => setName((e.target as HTMLInputElement).value)}
-          />
-          <button class={btnQuiet} disabled={r.busy}>
+          <Input aria-label="Your name" value={name ?? me.displayName} onInput={(e: any) => setName(e.target.value)} />
+          <Button variant="secondary" class="h-12" disabled={r.busy || (name ?? me.displayName) === me.displayName}>
             Save
-          </button>
+          </Button>
         </form>
-        <button
-          class={`${btnGhost} mt-3 px-0`}
-          onClick={() => void signOut().then(() => location.assign("/"))}
-        >
+        <p class="mt-1 text-[15px] text-ink-muted">This is what your family sees.</p>
+      </section>
+
+      <section class="border-t border-line pt-6">
+        <Button type="button" variant="secondary" onClick={() => void signOut().then(() => location.assign("/"))}>
           Sign out
-        </button>
+        </Button>
       </section>
       <ErrorLine text={r.error} />
     </div>

@@ -3,12 +3,12 @@
 // "yellow onion" in another can be merged, and the shopping list adds them up.
 import { useState } from "preact/hooks";
 import { Link, navigate, useLocation } from "@spacefast/zero/client";
-import { api, btnGhost, btnPrimary, btnQuiet, card, ErrorLine, input, Loading, SuggestOnDay, useRunner } from "./index";
+import { api, card, ErrorLine, Loading, SuggestOnDay, useRunner } from "./index";
 import { AISLES, formatAmount, parseIngredient } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
 import { dayName, shortDate } from "../shared/dates";
 import { AppPage, DetailTemplate, cardGrid, displayMd } from "./layout";
-import { EmptyState, MealTile, SearchField } from "./ui";
+import { AisleGroup, Button, Confirm, EmptyState, Field, Icon, Input, MealTile, SearchField, Select, Sheet, Tag, Textarea, buttonClass, sheetAction } from "./ui";
 
 const mealKey = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
 const slugOf = (key: string) => key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "meal";
@@ -46,7 +46,7 @@ export function RecipesPage() {
     <div>
       <div class="flex max-w-[640px] gap-3">
         <SearchField value={q} onInput={setQ} placeholder="Search recipes or ingredients" />
-        <Link to="/meals/new" class={`${btnPrimary} h-auto shrink-0`}>
+        <Link to="/meals/new" class={buttonClass("primary") + " h-12 shrink-0"}>
           New recipe
         </Link>
       </div>
@@ -71,7 +71,7 @@ export function RecipesPage() {
             <>
               <p class="font-display text-[26px] font-medium leading-tight">No recipes yet.</p>
               <p class="mt-2 text-[17px] text-ink-muted">Meals you pick for a day show up here, or start one yourself.</p>
-              <Link to="/meals/ideas" class={`${btnQuiet} mt-6`}>
+              <Link to="/meals/ideas" class={buttonClass("secondary") + " mt-6"}>
                 Browse Fork's ideas
               </Link>
             </>
@@ -104,7 +104,7 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
   const val = (e: Event) => (e.target as HTMLInputElement).value;
   return (
     <form
-      class="flex flex-col gap-4"
+      class="flex flex-col gap-6"
       onSubmit={async (e) => {
         e.preventDefault();
         const res = await r.run(() =>
@@ -113,63 +113,58 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
         if (res) onSaved(res.slug);
       }}
     >
-      <div class="grid grid-cols-[1fr_6rem] gap-2">
-        <label class="flex flex-col gap-1">
-          <span class={label}>Name</span>
-          <input class={input} placeholder="Grandma's lasagna" value={d.title} onInput={(e) => setD({ ...d, title: val(e) })} />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class={label}>Serves</span>
-          <input class={input} type="number" min="0" max="50" placeholder="4" value={d.servings} onInput={(e) => setD({ ...d, servings: val(e) })} />
-        </label>
+      <div class="grid grid-cols-[1fr_6rem] gap-3">
+        <Field label="Name">
+          <Input placeholder="Grandma's lasagna" value={d.title} onInput={(e: any) => setD({ ...d, title: val(e) })} />
+        </Field>
+        <Field label="Serves">
+          <Input type="number" inputMode="numeric" min="0" max="50" placeholder="4" value={d.servings} onInput={(e: any) => setD({ ...d, servings: val(e) })} />
+        </Field>
       </div>
 
-      <div>
-        <div class="mb-1 grid grid-cols-[5.5rem_1fr_1fr_2rem] gap-2">
-          <span class={label}>Amount</span>
-          <span class={label}>Ingredient</span>
-          <span class={label}>Prep</span>
-          <span />
-        </div>
+      <section>
+        <p class="mb-2 text-[15px] font-medium text-ink">Ingredients</p>
         <datalist id="fork-ingredients">
           {(known ?? []).map((k) => (
             <option key={k.key} value={k.name} />
           ))}
         </datalist>
-        <div class="flex flex-col gap-2">
+        <ul class="flex flex-col">
           {d.rows.map((row, i) => (
-            <div key={i} class="grid grid-cols-[5.5rem_1fr_1fr_2rem] items-center gap-2">
-              <input class={input} placeholder="2 lb" value={row.amount} onInput={(e) => setRow(i, { amount: val(e) })} />
-              <input class={input} list="fork-ingredients" placeholder="chicken thighs" value={row.name} onInput={(e) => setRow(i, { name: val(e) })} />
-              <input class={input} placeholder="diced" value={row.prep} onInput={(e) => setRow(i, { prep: val(e) })} />
-              <button type="button" class={btnGhost} aria-label="Remove ingredient" onClick={() => setD({ ...d, rows: d.rows.filter((_, j) => j !== i) })}>
-                ✕
-              </button>
-            </div>
+            // Phones: amount, name and remove on one line, prep under them. From 768px: one line.
+            <li key={i} class="grid grid-cols-[5.5rem_1fr_2.75rem] gap-2 border-b border-line py-3 first:pt-0 md:grid-cols-[6rem_1fr_1fr_2.75rem]">
+              <Input aria-label="Amount" placeholder="2 lb" value={row.amount} onInput={(e: any) => setRow(i, { amount: val(e) })} />
+              <Input aria-label="Ingredient" list="fork-ingredients" placeholder="Chicken thighs" value={row.name} onInput={(e: any) => setRow(i, { name: val(e) })} />
+              <Input aria-label="Prep" class="col-span-2 row-start-2 md:col-span-1 md:row-start-auto" placeholder="Prep, like diced" value={row.prep} onInput={(e: any) => setRow(i, { prep: val(e) })} />
+              <Button type="button" variant="ghost" class="size-12 px-0 md:col-start-4 md:row-start-1" aria-label="Remove ingredient" onClick={() => setD({ ...d, rows: d.rows.filter((_, j) => j !== i) })}>
+                <Icon name="close" size={18} />
+              </Button>
+            </li>
           ))}
-        </div>
-        <div class="mt-2 flex gap-3">
-          <button type="button" class={`${btnGhost} px-0`} onClick={() => setD({ ...d, rows: [...d.rows, { amount: "", name: "", prep: "" }] })}>
+        </ul>
+        <div class="mt-2 flex gap-1">
+          <Button type="button" variant="ghost" size="sm" class="-ml-3" onClick={() => setD({ ...d, rows: [...d.rows, { amount: "", name: "", prep: "" }] })}>
             + Add ingredient
-          </button>
-          {paste === null ? (
-            <button type="button" class={`${btnGhost} px-0`} onClick={() => setPaste("")}>
-              Paste a list
-            </button>
-          ) : null}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setPaste("")}>
+            Paste a list
+          </Button>
         </div>
-        {paste !== null ? (
-          <div class="mt-2 flex flex-col gap-2 rounded-lg bg-canvas p-3">
-            <textarea
-              class={`${input} min-h-28`}
-              placeholder={"One per line\n2 lb chicken thighs\n1 onion, diced\n3 cloves garlic"}
-              value={paste}
-              onInput={(e) => setPaste((e.target as HTMLTextAreaElement).value)}
-            />
-            <div class="flex gap-2">
-              <button
+      </section>
+
+      {paste !== null ? (
+        <Sheet
+          title="Paste a list"
+          onClose={() => setPaste(null)}
+          actions={
+            <>
+              <Button type="button" variant="secondary" class={sheetAction} onClick={() => setPaste(null)}>
+                Cancel
+              </Button>
+              <Button
                 type="button"
-                class={btnQuiet}
+                class={sheetAction}
+                disabled={!paste.trim()}
                 onClick={() => {
                   const added = paste.split("\n").map(splitLine).filter((x): x is Row => x !== null);
                   setD({ ...d, rows: [...d.rows.filter((x) => x.name.trim()), ...added] });
@@ -177,32 +172,30 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
                 }}
               >
                 Add these
-              </button>
-              <button type="button" class={btnGhost} onClick={() => setPaste(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
+              </Button>
+            </>
+          }
+        >
+          <Field label="Ingredients" hint="One per line, like “2 lb chicken thighs” or “1 onion, diced”.">
+            <Textarea autoFocus class="min-h-40" placeholder={"2 lb chicken thighs\n1 onion, diced\n3 cloves garlic"} value={paste} onInput={(e: any) => setPaste(e.target.value)} />
+          </Field>
+        </Sheet>
+      ) : null}
 
-      <label class="flex flex-col gap-1">
-        <span class={label}>How to make it</span>
-        <textarea
-          class={`${input} min-h-36`}
+      <Field label="How to make it">
+        <Textarea
+          class="min-h-36"
           placeholder={"Steps, timings, tips. Whatever helps whoever's cooking.\n1. Brown the chicken…"}
           value={d.notes}
-          onInput={(e) => setD({ ...d, notes: (e.target as HTMLTextAreaElement).value })}
+          onInput={(e: any) => setD({ ...d, notes: e.target.value })}
         />
-      </label>
+      </Field>
 
       <div class="flex gap-2">
-        <button class={btnPrimary} disabled={r.busy || !d.title.trim()}>
-          Save recipe
-        </button>
-        <button type="button" class={btnGhost} onClick={onCancel}>
+        <Button disabled={r.busy || !d.title.trim()}>Save recipe</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
       <ErrorLine text={r.error} />
     </form>
@@ -275,11 +268,11 @@ export function RecipePage({ slug }: { slug?: string }) {
       meta={`${madeLine(recipe.timesPicked, recipe.lastPicked)}${recipe.servings ? ` · serves ${recipe.servings}` : ""}`}
       actions={
         <>
-          <button class={btnPrimary} onClick={() => setMode(mode === "plan" ? "view" : "plan")}>
+          <Button onClick={() => setMode(mode === "plan" ? "view" : "plan")}>
             Plan for a day
-          </button>
-          <button
-            class={btnQuiet}
+          </Button>
+          <Button
+           variant="secondary"
             disabled={r.busy || !recipe.items.length}
             onClick={async () => {
               const res = await r.run(() => toList(recipe.slug));
@@ -287,10 +280,10 @@ export function RecipePage({ slug }: { slug?: string }) {
             }}
           >
             Add to list
-          </button>
-          <button class={btnGhost} onClick={() => setMode("edit")}>
+          </Button>
+          <Button variant="ghost" onClick={() => setMode("edit")}>
             Edit
-          </button>
+          </Button>
         </>
       }
     >
@@ -299,6 +292,7 @@ export function RecipePage({ slug }: { slug?: string }) {
       {mode === "plan" ? (
         <SuggestOnDay
           title={recipe.title}
+          onClose={() => setMode("view")}
           onDone={(msg) => {
             setMode("view");
             setNote(msg);
@@ -317,33 +311,30 @@ export function RecipePage({ slug }: { slug?: string }) {
         {recipe.notes ? (
           <p class="whitespace-pre-wrap text-[17px] leading-relaxed">{recipe.notes}</p>
         ) : (
-          <button class={`${btnGhost} px-0`} onClick={() => setMode("edit")}>
+          <Button variant="ghost" class="px-0" onClick={() => setMode("edit")}>
             + Add steps
-          </button>
+          </Button>
         )}
       </section>
 
+      <Button variant="ghost" class="self-start px-0 text-danger hover:bg-transparent hover:text-danger" onClick={() => setMode("delete")}>
+        Remove recipe
+      </Button>
       {mode === "delete" ? (
-        <div class={`${card} flex flex-wrap items-center gap-3 text-sm`}>
-          <span class="flex-1">Remove {recipe.title} from your recipes? The week and shopping list stay as they are.</span>
-          <button class={`${btn2Danger}`} onClick={() => void r.run(() => remove(recipe.key)).then(() => navigate("/meals", { replace: true }))}>
-            Remove
-          </button>
-          <button class={btnGhost} onClick={() => setMode("view")}>
-            Keep it
-          </button>
-        </div>
-      ) : (
-        <button class={`${btnGhost} self-start px-0 text-danger`} onClick={() => setMode("delete")}>
-          Remove recipe
-        </button>
-      )}
+        <Confirm
+          title={`Remove ${recipe.title}?`}
+          body="It comes off your recipes. The week and the shopping list stay as they are."
+          action="Remove"
+          cancel="Keep it"
+          busy={r.busy}
+          onClose={() => setMode("view")}
+          onConfirm={() => void r.run(() => remove(recipe.key)).then(() => navigate("/meals", { replace: true }))}
+        />
+      ) : null}
     </div>
     </DetailTemplate>
   );
 }
-
-const btn2Danger = "inline-flex h-11 items-center justify-center rounded-full bg-danger px-5 text-[15px] font-medium text-accent-foreground hover:opacity-85";
 
 // ---------- Fork's ideas ----------
 
@@ -415,24 +406,24 @@ export function IdeaPage({ slug }: { slug?: string }) {
       actions={
         <>
         {saved ? (
-          <Link to={`/recipe/${saved.slug}`} class={btnPrimary}>
+          <Link to={`/recipe/${saved.slug}`} class={buttonClass("primary")}>
             Open your recipe
           </Link>
         ) : (
-          <button
-            class={btnPrimary}
-            disabled={r.busy}
+          <Button
+            
+           disabled={r.busy}
             onClick={async () => {
               const res = await r.run(() => save("", JSON.stringify({ title: idea.title, servings: 4, notes: "", items: rows })));
               if (res) navigate(`/recipe/${res.slug}`);
             }}
           >
             Add to our recipes
-          </button>
+          </Button>
         )}
-        <button class={btnQuiet} onClick={() => setPlan(!plan)}>
+        <Button variant="secondary" onClick={() => setPlan(!plan)}>
           Plan for a day
-        </button>
+        </Button>
         </>
       }
     >
@@ -441,6 +432,7 @@ export function IdeaPage({ slug }: { slug?: string }) {
       {plan ? (
         <SuggestOnDay
           title={idea.title}
+          onClose={() => setPlan(false)}
           onDone={(msg) => {
             setPlan(false);
             setNote(msg);
@@ -473,89 +465,110 @@ function IngredientRow({ it, all }: { it: Ing; all: Ing[] }) {
   const [into, setInto] = useState("");
   const r = useRunner();
   const others = all.filter((x) => x.key !== it.key);
+  const close = () => {
+    setOpen(false);
+    setName(it.name);
+    setAisle(it.aisle);
+    setInto("");
+  };
   return (
-    <li class="px-4 py-2">
-      <button class="flex w-full items-center gap-2 text-left" onClick={() => setOpen(!open)}>
-        <span class="flex-1 font-medium">{it.name}</span>
-        <span class="text-xs text-ink-muted">
+    <li class="border-b border-line">
+      <button class="flex min-h-[52px] w-full items-center gap-3 py-2 text-left" onClick={() => setOpen(true)}>
+        <span class="min-w-0 flex-1 truncate text-[17px]">{it.name}</span>
+        <span class="shrink-0 text-[15px] text-ink-muted">
           {it.usedIn.length ? `${it.usedIn.length} recipe${it.usedIn.length === 1 ? "" : "s"}` : "Not in a recipe"}
         </span>
-        <span class="text-ink-muted">{open ? "⌃" : "⌄"}</span>
+        <Icon name="chevronRight" size={18} />
       </button>
       {open ? (
-        <div class="mt-2 flex flex-col gap-3 border-t border-line pt-3 text-sm">
-          <form
-            class="flex flex-wrap gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void r.run(() => saveIng(it.key, name, aisle));
-            }}
-          >
-            <input class={`${input} min-w-0 flex-1`} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} aria-label="Name" />
-            <select class={`${input} w-auto`} value={aisle} onChange={(e) => setAisle((e.target as HTMLSelectElement).value)} aria-label="Aisle">
-              {AISLES.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-            <button class={btnQuiet} disabled={r.busy || (name === it.name && aisle === it.aisle)}>
-              Save
-            </button>
-          </form>
-
-          {it.usedIn.length ? (
-            <p class="text-ink-muted">
-              In{" "}
-              {it.usedIn.map((u, i) => (
-                <span key={u.slug}>
-                  {i ? ", " : ""}
-                  <Link to={`/recipe/${u.slug}`} class="text-accent">
-                    {u.title}
-                  </Link>
-                </span>
-              ))}
-            </p>
-          ) : null}
-
-          {it.aliases.length ? (
-            <div class="flex flex-wrap items-center gap-1.5">
-              <span class="text-ink-muted">Also counts:</span>
-              {it.aliases.map((a) => (
-                <span key={a} class="inline-flex items-center gap-1 rounded-full bg-canvas px-2 py-0.5 text-xs">
-                  {a.replace(/^(can|jar):/, "")}
-                  <button class="text-ink-muted hover:text-ink" aria-label={`Split ${a} back out`} title="Split back out" onClick={() => void r.run(() => split(it.key, a))}>
-                    ✕
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          {others.length ? (
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="text-ink-muted">Same thing as</span>
-              <select class={`${input} w-auto min-w-0 flex-1`} value={into} onChange={(e) => setInto((e.target as HTMLSelectElement).value)} aria-label="Merge into">
-                <option value="">Pick an ingredient…</option>
-                {others.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.name}
+        <Sheet
+          title={it.name}
+          subtitle={it.aisle}
+          onClose={close}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const ok = await r.run(() => saveIng(it.key, name, aisle).then(() => true));
+            if (ok) setOpen(false);
+          }}
+          actions={
+            <>
+              <Button type="button" variant="secondary" class={sheetAction} onClick={close}>
+                Cancel
+              </Button>
+              <Button class={sheetAction} disabled={r.busy || (name === it.name && aisle === it.aisle)}>
+                Save
+              </Button>
+            </>
+          }
+        >
+          <div class="flex flex-col gap-5">
+            <Field label="Name">
+              <Input value={name} onInput={(e: any) => setName(e.target.value)} />
+            </Field>
+            <Field label="Aisle">
+              <Select value={aisle} onChange={(e: any) => setAisle(e.target.value)}>
+                {AISLES.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
                   </option>
                 ))}
-              </select>
-              <button class={btnQuiet} disabled={!into || r.busy} onClick={() => void r.run(() => merge(it.key, into))}>
-                Merge
-              </button>
-            </div>
-          ) : null}
+              </Select>
+            </Field>
 
-          {!it.usedIn.length ? (
-            <button class={`${btnGhost} self-start px-0 text-danger`} onClick={() => void r.run(() => removeIng(it.key))}>
-              Remove ingredient
-            </button>
-          ) : null}
-          <ErrorLine text={r.error} />
-        </div>
+            {it.usedIn.length ? (
+              <p class="text-[15px] text-ink-muted">
+                In{" "}
+                {it.usedIn.map((u, i) => (
+                  <span key={u.slug}>
+                    {i ? ", " : ""}
+                    <Link to={`/recipe/${u.slug}`} class="text-ink underline decoration-line underline-offset-4">
+                      {u.title}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            ) : null}
+
+            {it.aliases.length ? (
+              <div class="flex flex-wrap items-center gap-1.5 text-[15px]">
+                <span class="text-ink-muted">Also counts:</span>
+                {it.aliases.map((a) => (
+                  <Tag key={a} tone="neutral">
+                    {a.replace(/^(can|jar):/, "")}
+                    <button type="button" class="ml-1 text-ink-muted hover:text-ink" aria-label={`Split ${a} back out`} title="Split back out" onClick={() => void r.run(() => split(it.key, a))}>
+                      ✕
+                    </button>
+                  </Tag>
+                ))}
+              </div>
+            ) : null}
+
+            {others.length ? (
+              <Field label="Same thing as" hint="Merging keeps one name and counts both on the list.">
+                <div class="flex gap-2">
+                  <Select class="min-w-0 flex-1" value={into} onChange={(e: any) => setInto(e.target.value)}>
+                    <option value="">Pick an ingredient…</option>
+                    {others.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </Select>
+                  <Button type="button" variant="secondary" disabled={!into || r.busy} onClick={() => void r.run(() => merge(it.key, into)).then(() => setOpen(false))}>
+                    Merge
+                  </Button>
+                </div>
+              </Field>
+            ) : null}
+
+            {!it.usedIn.length ? (
+              <Button type="button" variant="ghost" class="self-start px-0 text-danger hover:bg-transparent hover:text-danger" onClick={() => void r.run(() => removeIng(it.key))}>
+                Remove ingredient
+              </Button>
+            ) : null}
+            <ErrorLine text={r.error} />
+          </div>
+        </Sheet>
       ) : null}
     </li>
   );
@@ -577,15 +590,14 @@ export function IngredientsPage() {
     <div>
       <div class="flex gap-2">
         <SearchField value={q} onInput={setQ} placeholder="Search ingredients" />
-        {adding ? null : (
-          <button class={`${btnPrimary} shrink-0`} onClick={() => setAdding(true)}>
-            + Add
-          </button>
-        )}
+        <Button class="h-12 shrink-0" onClick={() => setAdding(true)}>
+          + Add
+        </Button>
       </div>
       {adding ? (
-        <form
-          class={`${card} mt-3 flex flex-wrap gap-2`}
+        <Sheet
+          title="Add an ingredient"
+          onClose={() => setAdding(false)}
           onSubmit={async (e) => {
             e.preventDefault();
             const ok = await r.run(() => add(name, aisle).then(() => true));
@@ -594,39 +606,42 @@ export function IngredientsPage() {
               setAdding(false);
             }
           }}
+          actions={
+            <>
+              <Button type="button" variant="secondary" class={sheetAction} onClick={() => setAdding(false)}>
+                Cancel
+              </Button>
+              <Button class={sheetAction} disabled={r.busy || !name.trim()}>
+                Add
+              </Button>
+            </>
+          }
         >
-          <input class={`${input} min-w-0 flex-1`} placeholder="Ingredient name" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-          <select class={`${input} w-auto`} value={aisle} onChange={(e) => setAisle((e.target as HTMLSelectElement).value)}>
-            {AISLES.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-          <button class={btnPrimary} disabled={r.busy || !name.trim()}>
-            Add
-          </button>
-          <button type="button" class={btnGhost} onClick={() => setAdding(false)}>
-            Cancel
-          </button>
-          <ErrorLine text={r.error} />
-        </form>
+          <div class="flex flex-col gap-5">
+            <Field label="Name">
+              <Input autoFocus placeholder="Chicken thighs" value={name} onInput={(e: any) => setName(e.target.value)} />
+            </Field>
+            <Field label="Aisle">
+              <Select value={aisle} onChange={(e: any) => setAisle(e.target.value)}>
+                {AISLES.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <ErrorLine text={r.error} />
+          </div>
+        </Sheet>
       ) : null}
-      {!all.length ? (
-        <p class={`${card} mt-4 text-center text-sm text-ink-muted`}>Ingredients appear here as your family adds recipes, picks meals and adds to the list.</p>
-      ) : null}
-      <div class="mt-4 flex flex-col gap-4">
+      {!all.length ? <EmptyState title="No ingredients yet." body="They appear here as your family adds recipes, picks meals and adds to the list." /> : null}
+      <div class="mt-6 flex flex-col gap-8">
         {groups.map((g) => (
-          <section key={g.aisle}>
-            <h3 class={`${label} mb-1`}>
-              {g.aisle} <span class="font-normal normal-case">· {g.items.length}</span>
-            </h3>
-            <ul class={`${card} divide-y divide-line p-0`}>
-              {g.items.map((it) => (
-                <IngredientRow key={`${it.key}:${it.name}:${it.aisle}`} it={it} all={all} />
-              ))}
-            </ul>
-          </section>
+          <AisleGroup key={g.aisle} aisle={`${g.aisle} · ${g.items.length}`}>
+            {g.items.map((it) => (
+              <IngredientRow key={`${it.key}:${it.name}:${it.aisle}`} it={it} all={all} />
+            ))}
+          </AisleGroup>
         ))}
       </div>
     </div>

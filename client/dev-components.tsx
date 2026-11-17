@@ -19,6 +19,9 @@ import {
   SectionHeading,
   Sheet,
   sheetAction,
+  Select,
+  PersonRow,
+  Confirm,
   SuggestionRow,
   Tag,
   TextLink,
@@ -230,6 +233,10 @@ function Atoms({ mode }: { mode: Mode }) {
           <Input value="The Andrews" />
           <Input placeholder="Disabled" disabled />
           <Textarea placeholder={"1 lb ground beef\n1 onion"} />
+          <Select defaultValue="Produce">
+            <option>Produce</option>
+            <option>Dairy &amp; eggs</option>
+          </Select>
         </div>
       </Specimen>
 
@@ -324,6 +331,13 @@ function Molecules({ mode }: { mode: Mode }) {
         </ul>
       </Specimen>
 
+      <Specimen id="person" name="Person row" mode={mode} usage="Someone in the family: initial, name, one meta line.">
+        <ul class="max-w-[420px] border-t border-line">
+          <PersonRow name="Sam (you)" meta="Started the family" />
+          <PersonRow name="Maya" />
+        </ul>
+      </Specimen>
+
       <Specimen id="empty" name="Empty state" mode={mode} usage="One line saying what's missing, one action that fixes it. No illustration.">
         <EmptyState title="No recipes yet." body="Meals you pick for a day show up here, or start one yourself." action={<Button variant="secondary">Browse Fork's ideas</Button>} />
       </Specimen>
@@ -342,6 +356,10 @@ function Organisms({ mode }: { mode: Mode }) {
     <Level id="organisms" title="Organisms" intro="Sections of a screen, built from molecules. These are the same components the Week and Shopping list screens render.">
       <Specimen id="sheet" name="Sheet" mode={mode} usage="A focused task over the screen, from shadcn/ui. A drag-to-dismiss bottom drawer on phones, a centered dialog from 768px. Title and the day it's for, the fields, then Cancel and one primary action.">
         <SheetDemo />
+      </Specimen>
+
+      <Specimen id="confirm" name="Confirm" mode={mode} usage="A destructive step, from shadcn's AlertDialog. Say what happens, then Keep and the danger action.">
+        <ConfirmDemo />
       </Specimen>
 
       <Specimen id="day-plan" name="Day plan" mode={mode} usage="One day on the Week screen. Who's cooking, the ideas, and a way to add one.">
@@ -468,6 +486,27 @@ function SheetDemo() {
             </Field>
           </div>
         </Sheet>
+      ) : null}
+    </>
+  );
+}
+
+function ConfirmDemo() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Remove recipe
+      </Button>
+      {open ? (
+        <Confirm
+          title="Remove Grandma's lasagna?"
+          body="It comes off your recipes. The week and the shopping list stay as they are."
+          action="Remove"
+          cancel="Keep it"
+          onClose={() => setOpen(false)}
+          onConfirm={() => setOpen(false)}
+        />
       ) : null}
     </>
   );

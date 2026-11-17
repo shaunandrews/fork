@@ -3,13 +3,25 @@
 // no data fetching here, so every piece renders in the /dev/components library.
 //
 //   Atoms      Button, TextLink, Input, Textarea, Select, Tag, VoteButton, CheckCircle, Thumb, Icon
-//   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, EmptyState, SectionHeading
-//   Organisms  DayPlan, AisleGroup, Sheet (shadcn/ui Drawer + Dialog, in components/ui/)
+//   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, PersonRow, EmptyState, SectionHeading
+//   Organisms  DayPlan, AisleGroup, Sheet (shadcn Drawer + Dialog), Confirm (shadcn AlertDialog)
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
 import { cloneElement, isValidElement } from "preact";
 import { useEffect, useId, useState } from "preact/hooks";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./components/ui/alert-dialog";
+import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { Badge } from "./components/ui/badge";
+import { cn } from "./lib/utils";
 import { Button as UIButton, buttonVariants } from "./components/ui/button";
 import { Checkbox } from "./components/ui/checkbox";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
@@ -37,7 +49,7 @@ const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visi
 
 /** Class string for a button, for elements we don't render ourselves (sign-in buttons, Links). */
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md") {
-  return buttonVariants({ variant: variantMap[variant], size: sizeMap[size] });
+  return cn(buttonVariants({ variant: variantMap[variant], size: sizeMap[size] }));
 }
 
 // Legacy names used across screens. All are shadcn Button styles.
@@ -171,6 +183,7 @@ const ICONS: Record<string, string> = {
   chevronRight: "M9.5 5.5 16 12l-6.5 6.5",
   chevronDown: "M5.5 9.5 12 16l6.5-6.5",
   plus: "M12 5v14M5 12h14",
+  close: "M6.5 6.5l11 11M17.5 6.5l-11 11",
   check: "M5 12.5 10 17l9-10",
   search: "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 20 20",
   chef: "M7 14.5v5h10v-5M7 14.5a4 4 0 0 1-.5-7.9 5.5 5.5 0 0 1 11 0 4 4 0 0 1-.5 7.9ZM7 17h10",
@@ -499,5 +512,56 @@ export function Sheet({
         </Body>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/** shadcn AlertDialog for a destructive step: what happens, then Keep and the danger action. */
+export function Confirm({
+  title,
+  body,
+  action,
+  cancel = "Cancel",
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  body?: string;
+  action: string;
+  cancel?: string;
+  busy?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <AlertDialog open onOpenChange={(next: boolean) => !next && onClose()}>
+      <AlertDialogContent data-component="Confirm" className="max-w-[calc(100%-2rem)] gap-5 rounded-[20px] bg-canvas p-6 sm:max-w-[420px]">
+        <AlertDialogHeader className="place-items-start text-left">
+          <AlertDialogTitle className="font-display text-[24px] font-medium leading-tight">{title}</AlertDialogTitle>
+          {body ? <AlertDialogDescription className="text-[15px] text-ink-muted">{body}</AlertDialogDescription> : null}
+        </AlertDialogHeader>
+        <AlertDialogFooter className="m-0 grid grid-cols-2 gap-2 border-0 bg-transparent p-0 sm:flex">
+          <AlertDialogCancel className={buttonClass("secondary")}>{cancel}</AlertDialogCancel>
+          <AlertDialogAction className={buttonClass("danger") + " bg-danger text-accent-foreground hover:bg-danger/85"} disabled={busy} onClick={onConfirm}>
+            {action}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/** One person: shadcn Avatar with their initial, the name, and a meta line. */
+export function PersonRow({ name, meta }: { name: string; meta?: string }) {
+  return (
+    <li class="flex min-h-[56px] items-center gap-3 border-b border-line py-2" data-component="PersonRow">
+      <Avatar className="size-10">
+        <AvatarFallback className="bg-surface-strong font-display text-[18px] text-ink">{name.trim()[0]?.toUpperCase() ?? "?"}</AvatarFallback>
+      </Avatar>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-[17px]">{name}</span>
+        {meta ? <span class="block truncate text-[13px] text-ink-muted">{meta}</span> : null}
+      </span>
+    </li>
   );
 }

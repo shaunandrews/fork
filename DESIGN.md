@@ -325,8 +325,11 @@ Flat. There is one shadow, for things that float over content: sheets, menus, th
 
 ## Components
 
+Every component comes from [shadcn/ui](https://ui.shadcn.com) (Base UI underneath), copied into `client/components/ui/` and tuned to these tokens: pill buttons, 44px tap targets, filled 48px inputs at 17px (no iOS zoom), and shadcn's neutral `accent` hover fills swapped for `muted`, because Basil only means state. `client/ui.tsx` wraps them in Fork's names (Button, Input, Select, Field, Tag, Sheet, Confirm…), and screens use those, never raw elements. To add one: `npx shadcn@latest add <name>` in a scratch project with the `base-nova` style, copy the file in, point `cn` at `../../lib/utils`, take lucide icons off its default export, and wrap it in `client/ui.tsx`. A startup style in `client/index.tsx` maps shadcn's `primary` to ink and `ring` to ink.
+
+- **Confirm:** destructive steps (remove a recipe, make a new invite link) ask first in a shadcn AlertDialog: what happens, then Cancel and the danger action.
 - **Buttons:** primary is a solid ink pill (`button-primary`), 48px tall. Secondary is a hairline pill. Tertiary is text only. One primary per screen.
-- **Sheet:** a focused task (suggest a meal) opens in a sheet, never inline in a list. Bottom sheet on phones (20px top corners, grab handle, safe-area padding), centered 520px dialog from 768px. Scrim at 40%. Title in display type with the day under it, labelled fields, then Cancel (secondary) and one primary, full width side by side on phones. Esc, the scrim, or Cancel closes it.
+- **Sheet:** every focused task (suggest a meal, edit ingredients, plan for a day, add or edit an ingredient, paste a list) opens in a sheet, never inline in a list. shadcn Drawer on phones (drag down to dismiss, 20px top corners, swipe handle, safe-area padding), shadcn Dialog from 768px, 520px wide. Title in display type with the day under it, labelled fields, then Cancel (secondary) and one primary, full width side by side on phones. Esc, the scrim, or Cancel closes it.
 - **Meal hero:** full-bleed photo, then the meal name in `display-lg`, then one meta line ("Sam is cooking · 3 votes"), then the primary action.
 - **Meal card:** photo (4:3) + `title` + one `body-sm` meta line. No border, no fill, no shadow. The whole card is the tap target.
 - **Vote button:** hairline pill with a tabular count. Active state fills Basil Soft with a Basil border and text.
