@@ -7,7 +7,7 @@ import { caption, container, displayLg, displayMd, flow, usePageTitle } from "./
 import { SCENARIOS, goUrl, scenarioUrl } from "../shared/scenarios";
 import { todayLocal } from "../shared/dates";
 
-const isLocal = () => typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const isLocal = () => typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\]|100\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|[\w-]+\.[\w-]+\.ts\.net)$/.test(location.hostname);
 
 export function DevFrame({ title, children }: { title: string; children: any }) {
   usePageTitle(`${title} · Dev`);

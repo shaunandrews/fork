@@ -3,7 +3,7 @@
 import { useAuth } from "@spacefast/zero/client";
 import { SCENARIOS } from "../shared/scenarios";
 
-const isLocal = () => typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const isLocal = () => typeof location !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\]|100\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|[\w-]+\.[\w-]+\.ts\.net)$/.test(location.hostname);
 
 export function DevBadge() {
   const auth = useAuth() as any;
