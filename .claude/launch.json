@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fork",
+      "runtimeExecutable": "sf",
+      "runtimeArgs": [
+        "dev",
+        "--state-backend",
+        "sqlite",
+        "--watch"
+      ],
+      "port": 4173
+    },
+    {
+      "name": "fork-scenarios",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "FORK_SCENARIOS=1 sf dev --port 4180 --watch"
+      ],
+      "port": 4180
+    },
+    {
+      "name": "review",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/review.mjs"
+      ],
+      "port": 4300
+    }
+  ]
+}

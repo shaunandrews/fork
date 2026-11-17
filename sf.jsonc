@@ -3,5 +3,9 @@
     "kind": "zero",
     "server": "server/index.ts",
     "client": "client/index.tsx"
+  },
+  "meta": {
+    "title": "Fork: what's for dinner tonight?",
+    "description": "A dinner planner for families. Everyone suggests, everyone votes, someone cooks, and the groceries land on one shared list."
   }
 }

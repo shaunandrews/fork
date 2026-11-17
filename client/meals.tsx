@@ -7,10 +7,12 @@ import { api, btnGhost, btnPrimary, btnQuiet, card, ErrorLine, input, Loading, S
 import { AISLES, formatAmount, parseIngredient } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
 import { dayName, shortDate } from "../shared/dates";
+import { AppPage, DetailTemplate, cardGrid, displayMd } from "./layout";
+import { EmptyState, MealTile, SearchField } from "./ui";
 
 const mealKey = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
 const slugOf = (key: string) => key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "meal";
-const label = "text-xs font-semibold uppercase tracking-wide text-ink-muted";
+const label = "text-[13px] font-medium text-ink-muted";
 
 function madeLine(times: number, last: string | null): string {
   if (!times) return "Not made yet";
@@ -25,36 +27,12 @@ function Notice({ text }: { text: string | null }) {
 
 // ---------- section nav ----------
 
-function MealsNav() {
-  const loc = useLocation();
-  const item = (to: string, text: string) => {
-    const on = loc.pathname === to;
-    return (
-      <Link to={to} class={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium ${on ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}>
-        {text}
-      </Link>
-    );
-  };
-  return (
-    <nav class="mb-4 flex gap-1 rounded-lg border border-line bg-canvas p-1">
-      {item("/meals", "Recipes")}
-      {item("/meals/ideas", "Ideas")}
-      {item("/meals/ingredients", "Ingredients")}
-    </nav>
-  );
-}
+export const MEALS_NAV = [
+  { to: "/meals", label: "Recipes" },
+  { to: "/meals/ideas", label: "Ideas" },
+  { to: "/meals/ingredients", label: "Ingredients" },
+];
 
-function BackLink({ to, text }: { to: string; text: string }) {
-  return (
-    <Link to={to} class="mb-3 inline-block text-sm text-ink-muted hover:text-ink">
-      ‹ {text}
-    </Link>
-  );
-}
-
-function Search({ value, onInput, placeholder }: { value: string; onInput: (v: string) => void; placeholder: string }) {
-  return <input class={input} type="search" placeholder={placeholder} value={value} onInput={(e) => onInput((e.target as HTMLInputElement).value)} />;
-}
 
 // ---------- recipes list ----------
 
@@ -66,43 +44,36 @@ export function RecipesPage() {
   const shown = meals.filter((m) => !needle || m.title.toLowerCase().includes(needle) || m.preview.some((p) => p.includes(needle)));
   return (
     <div>
-      <MealsNav />
-      <div class="flex gap-2">
-        <Search value={q} onInput={setQ} placeholder="Search recipes or ingredients" />
-        <Link to="/meals/new" class={`${btnPrimary} shrink-0`}>
-          + New recipe
+      <div class="flex max-w-[640px] gap-3">
+        <SearchField value={q} onInput={setQ} placeholder="Search recipes or ingredients" />
+        <Link to="/meals/new" class={`${btnPrimary} h-auto shrink-0`}>
+          New recipe
         </Link>
       </div>
       {shown.length ? (
-        <ul class="mt-4 flex flex-col gap-2">
+        <ul class={`${cardGrid} mt-8`}>
           {shown.map((m) => (
             <li key={m.key}>
-              <Link to={`/recipe/${m.slug}`} class={`${card} flex items-center gap-3 p-3 hover:border-accent`}>
-                <div class="min-w-0 flex-1">
-                  <div class="font-semibold text-ink">{m.title}</div>
-                  <div class="truncate text-sm text-ink-muted">
-                    {m.preview.length ? m.preview.join(", ") + (m.ingredientCount > m.preview.length ? `, +${m.ingredientCount - m.preview.length}` : "") : "No ingredients yet"}
-                  </div>
-                  <div class="mt-0.5 text-xs text-ink-muted">
-                    {madeLine(m.timesPicked, m.lastPicked)}
-                    {m.servings ? ` · serves ${m.servings}` : ""}
-                  </div>
-                </div>
-                <span class="text-ink-muted">›</span>
-              </Link>
+              <MealTile
+                to={`/recipe/${m.slug}`}
+                title={m.title}
+                eyebrow={`${madeLine(m.timesPicked, m.lastPicked)}${m.servings ? ` · serves ${m.servings}` : ""}`}
+                meta={m.preview.length ? m.preview.join(", ") + (m.ingredientCount > m.preview.length ? `, +${m.ingredientCount - m.preview.length}` : "") : "No ingredients yet"}
+              />
             </li>
           ))}
         </ul>
       ) : (
-        <div class={`${card} mt-4 text-center text-sm text-ink-muted`}>
+        <div class="mt-12 max-w-[30rem]">
           {needle ? (
-            "No recipes match."
+            <p class="font-display text-[26px] font-medium leading-tight">No recipes match.</p>
           ) : (
             <>
-              <p>Your family's recipes live here. Meals you pick on the week show up too.</p>
-              <p class="mt-2">
-                Start one, or <Link to="/meals/ideas" class="text-accent">browse Fork's ideas</Link>.
-              </p>
+              <p class="font-display text-[26px] font-medium leading-tight">No recipes yet.</p>
+              <p class="mt-2 text-[17px] text-ink-muted">Meals you pick for a day show up here, or start one yourself.</p>
+              <Link to="/meals/ideas" class={`${btnQuiet} mt-6`}>
+                Browse Fork's ideas
+              </Link>
             </>
           )}
         </div>
@@ -241,8 +212,6 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
 export function NewRecipePage() {
   return (
     <div>
-      <BackLink to="/meals" text="Recipes" />
-      <h2 class="mb-4 text-xl font-bold">New recipe</h2>
       <RecipeEditor
         start={{ title: "", servings: "", notes: "", rows: [] }}
         originalKey=""
@@ -280,16 +249,13 @@ export function RecipePage({ slug }: { slug?: string }) {
   if (recipe === undefined) return <Loading />;
   if (recipe === null)
     return (
-      <div>
-        <BackLink to="/meals" text="Recipes" />
-        <p class={`${card} text-sm text-ink-muted`}>That recipe isn't here anymore.</p>
-      </div>
+      <AppPage title="Recipe not found" back={{ to: "/meals", text: "Recipes" }} description="That recipe isn't here anymore.">
+        {null}
+      </AppPage>
     );
   if (mode === "edit")
     return (
-      <div>
-        <BackLink to="/meals" text="Recipes" />
-        <h2 class="mb-4 text-xl font-bold">Edit recipe</h2>
+      <AppPage title="Edit recipe" back={{ to: `/recipe/${recipe.slug}`, text: recipe.title }}>
         <RecipeEditor
           start={{ title: recipe.title, servings: recipe.servings ? String(recipe.servings) : "", notes: recipe.notes, rows: recipe.items.map((i) => ({ amount: i.amount, name: i.name, prep: i.prep })) }}
           originalKey={recipe.key}
@@ -300,40 +266,36 @@ export function RecipePage({ slug }: { slug?: string }) {
           }}
           onCancel={() => setMode("view")}
         />
-      </div>
+      </AppPage>
     );
   return (
-    <div class="flex flex-col gap-4">
-      <div>
-        <BackLink to="/meals" text="Recipes" />
-        <div class="flex items-start justify-between gap-3">
-          <h2 class="text-2xl font-bold">{recipe.title}</h2>
-          <button class={btnQuiet} onClick={() => setMode("edit")}>
+    <DetailTemplate
+      back={{ to: "/meals", text: "Recipes" }}
+      title={recipe.title}
+      meta={`${madeLine(recipe.timesPicked, recipe.lastPicked)}${recipe.servings ? ` · serves ${recipe.servings}` : ""}`}
+      actions={
+        <>
+          <button class={btnPrimary} onClick={() => setMode(mode === "plan" ? "view" : "plan")}>
+            Plan for a day
+          </button>
+          <button
+            class={btnQuiet}
+            disabled={r.busy || !recipe.items.length}
+            onClick={async () => {
+              const res = await r.run(() => toList(recipe.slug));
+              if (res) setNote(`Added ${res.added} ingredients to the shopping list.`);
+            }}
+          >
+            Add to list
+          </button>
+          <button class={btnGhost} onClick={() => setMode("edit")}>
             Edit
           </button>
-        </div>
-        <p class="mt-1 text-sm text-ink-muted">
-          {madeLine(recipe.timesPicked, recipe.lastPicked)}
-          {recipe.servings ? ` · serves ${recipe.servings}` : ""}
-        </p>
-      </div>
+        </>
+      }
+    >
+    <div class="flex flex-col gap-6">
       <Notice text={note} />
-
-      <div class="flex flex-wrap gap-2">
-        <button class={btnPrimary} onClick={() => setMode(mode === "plan" ? "view" : "plan")}>
-          Plan for a day
-        </button>
-        <button
-          class={btnQuiet}
-          disabled={r.busy || !recipe.items.length}
-          onClick={async () => {
-            const res = await r.run(() => toList(recipe.slug));
-            if (res) setNote(`Added ${res.added} ingredients to the shopping list.`);
-          }}
-        >
-          Add to shopping list
-        </button>
-      </div>
       {mode === "plan" ? (
         <SuggestOnDay
           title={recipe.title}
@@ -345,15 +307,15 @@ export function RecipePage({ slug }: { slug?: string }) {
       ) : null}
       <ErrorLine text={r.error} />
 
-      <section class={card}>
-        <h3 class={`${label} mb-1`}>Ingredients</h3>
+      <section>
+        <h2 class={`${displayMd} mb-3`}>Ingredients</h2>
         <IngredientTable items={recipe.items} />
       </section>
 
-      <section class={card}>
-        <h3 class={`${label} mb-2`}>How to make it</h3>
+      <section>
+        <h2 class={`${displayMd} mb-3`}>How to make it</h2>
         {recipe.notes ? (
-          <p class="whitespace-pre-wrap text-sm leading-relaxed">{recipe.notes}</p>
+          <p class="whitespace-pre-wrap text-[17px] leading-relaxed">{recipe.notes}</p>
         ) : (
           <button class={`${btnGhost} px-0`} onClick={() => setMode("edit")}>
             + Add steps
@@ -377,10 +339,11 @@ export function RecipePage({ slug }: { slug?: string }) {
         </button>
       )}
     </div>
+    </DetailTemplate>
   );
 }
 
-const btn2Danger = "inline-flex items-center justify-center rounded-lg bg-danger px-3 py-2 text-sm font-medium text-white hover:opacity-90";
+const btn2Danger = "inline-flex h-11 items-center justify-center rounded-full bg-danger px-5 text-[15px] font-medium text-accent-foreground hover:opacity-85";
 
 // ---------- Fork's ideas ----------
 
@@ -397,38 +360,34 @@ export function IdeasPage() {
   );
   return (
     <div>
-      <MealsNav />
-      <Search value={q} onInput={setQ} placeholder="Search Fork's ideas" />
-      <div class="mt-3 flex flex-wrap gap-1.5">
+      <div class="max-w-[640px]">
+        <SearchField value={q} onInput={setQ} placeholder="Search Fork's ideas" />
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2">
         {TAGS.map((t) => (
           <button
             key={t}
-            class={`rounded-full border px-3 py-1 text-xs ${tag === t ? "border-accent bg-accent text-white" : "border-line text-ink-muted hover:text-ink"}`}
+            aria-pressed={tag === t}
+            class={`h-9 rounded-full border px-3.5 text-[15px] font-medium ${tag === t ? "border-ink bg-ink text-canvas" : "border-line text-ink-muted hover:text-ink"}`}
             onClick={() => setTag(tag === t ? null : t)}
           >
             {t}
           </button>
         ))}
       </div>
-      <ul class="mt-4 flex flex-col gap-2">
+      <ul class={`${cardGrid} mt-8`}>
         {shown.map((x) => (
           <li key={x.title}>
-            <Link to={`/idea/${slugOf(mealKey(x.title))}`} class={`${card} flex items-center gap-3 p-3 hover:border-accent`}>
-              <div class="min-w-0 flex-1">
-                <div class="font-semibold text-ink">
-                  {x.title}
-                  {mine.has(mealKey(x.title)) ? <span class="ml-2 rounded-full bg-canvas px-2 py-0.5 text-xs font-normal text-success">In your recipes</span> : null}
-                </div>
-                <div class="text-xs text-ink-muted">
-                  {x.tags.join(" · ")} · {x.ingredients.length} ingredients
-                </div>
-              </div>
-              <span class="text-ink-muted">›</span>
-            </Link>
+            <MealTile
+              to={`/idea/${slugOf(mealKey(x.title))}`}
+              title={x.title}
+              tag={mine.has(mealKey(x.title)) ? "Saved" : undefined}
+              eyebrow={`${x.tags.slice(0, 2).join(" · ")} · ${x.ingredients.length} ingredients`}
+            />
           </li>
         ))}
       </ul>
-      {!shown.length ? <p class="mt-6 text-center text-sm text-ink-muted">No ideas match.</p> : null}
+      {!shown.length ? <p class="mt-12 font-display text-[26px] font-medium">No ideas match.</p> : null}
     </div>
   );
 }
@@ -442,22 +401,19 @@ export function IdeaPage({ slug }: { slug?: string }) {
   const idea = RECIPES.find((x) => slugOf(mealKey(x.title)) === slug);
   if (!idea)
     return (
-      <div>
-        <BackLink to="/meals/ideas" text="Ideas" />
-        <p class={`${card} text-sm text-ink-muted`}>That idea isn't here.</p>
-      </div>
+      <AppPage title="Idea not found" back={{ to: "/meals/ideas", text: "Ideas" }} description="That idea isn't here.">
+        {null}
+      </AppPage>
     );
   const saved = (meals ?? []).find((m) => m.key === mealKey(idea.title));
   const rows = idea.ingredients.map(splitLine).filter((x): x is Row => x !== null);
   return (
-    <div class="flex flex-col gap-4">
-      <div>
-        <BackLink to="/meals/ideas" text="Ideas" />
-        <h2 class="text-2xl font-bold">{idea.title}</h2>
-        <p class="mt-1 text-sm text-ink-muted">An idea from Fork · {idea.tags.join(" · ")} · serves about 4</p>
-      </div>
-      <Notice text={note} />
-      <div class="flex flex-wrap gap-2">
+    <DetailTemplate
+      back={{ to: "/meals/ideas", text: "Ideas" }}
+      title={idea.title}
+      meta={`An idea from Fork · ${idea.tags.join(" · ")} · serves about 4`}
+      actions={
+        <>
         {saved ? (
           <Link to={`/recipe/${saved.slug}`} class={btnPrimary}>
             Open your recipe
@@ -477,7 +433,11 @@ export function IdeaPage({ slug }: { slug?: string }) {
         <button class={btnQuiet} onClick={() => setPlan(!plan)}>
           Plan for a day
         </button>
-      </div>
+        </>
+      }
+    >
+    <div class="flex flex-col gap-6">
+      <Notice text={note} />
       {plan ? (
         <SuggestOnDay
           title={idea.title}
@@ -488,12 +448,13 @@ export function IdeaPage({ slug }: { slug?: string }) {
         />
       ) : null}
       <ErrorLine text={r.error} />
-      <section class={card}>
-        <h3 class={`${label} mb-1`}>Ingredients</h3>
+      <section>
+        <h2 class={`${displayMd} mb-3`}>Ingredients</h2>
         <IngredientTable items={rows} />
       </section>
-      <p class="text-sm text-ink-muted">Add it to your recipes to change the amounts or write down how you make it.</p>
+      <p class="text-[15px] text-ink-muted">Add it to your recipes to change the amounts or write down how you make it.</p>
     </div>
+    </DetailTemplate>
   );
 }
 
@@ -614,12 +575,8 @@ export function IngredientsPage() {
   const groups = AISLES.map((a) => ({ aisle: a as string, items: shown.filter((x) => x.aisle === a) })).filter((g) => g.items.length);
   return (
     <div>
-      <MealsNav />
-      <p class="mb-3 text-sm text-ink-muted">
-        One list for every recipe. Merge two names for the same thing and the shopping list adds them up. The aisle sets where it shows on the list.
-      </p>
       <div class="flex gap-2">
-        <Search value={q} onInput={setQ} placeholder="Search ingredients" />
+        <SearchField value={q} onInput={setQ} placeholder="Search ingredients" />
         {adding ? null : (
           <button class={`${btnPrimary} shrink-0`} onClick={() => setAdding(true)}>
             + Add

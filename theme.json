@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 3,
+  "settings": {
+    "color": {
+      "palette": [
+        { "slug": "canvas", "name": "Canvas", "color": "light-dark(#ffffff, #111110)" },
+        { "slug": "surface", "name": "Surface", "color": "light-dark(#f6f6f4, #1b1b19)" },
+        { "slug": "surface-strong", "name": "Surface strong", "color": "light-dark(#ecece9, #262623)" },
+        { "slug": "ink", "name": "Ink", "color": "light-dark(#151514, #f4f4f2)" },
+        { "slug": "ink-muted", "name": "Ink muted", "color": "light-dark(#6b6b66, #a3a39d)" },
+        { "slug": "line", "name": "Line", "color": "light-dark(#e6e6e2, #2c2c29)" },
+        { "slug": "action", "name": "Action", "color": "light-dark(#151514, #f4f4f2)" },
+        { "slug": "on-action", "name": "On action", "color": "light-dark(#ffffff, #111110)" },
+        { "slug": "accent", "name": "Basil", "color": "light-dark(#2f7a4f, #5fb385)" },
+        { "slug": "accent-soft", "name": "Basil soft", "color": "light-dark(#e7f2ec, #18291f)" },
+        { "slug": "accent-foreground", "name": "On Basil", "color": "light-dark(#ffffff, #0d1a12)" },
+        { "slug": "danger", "name": "Danger", "color": "light-dark(#b42318, #f0786c)" }
+      ]
+    },
+    "typography": {
+      "fontFamilies": [
+        { "slug": "sans", "name": "Geist", "fontFamily": "'Geist', -apple-system, system-ui, sans-serif" },
+        { "slug": "display", "name": "Newsreader", "fontFamily": "'Newsreader', 'Iowan Old Style', Georgia, serif" }
+      ]
+    }
+  }
+}
