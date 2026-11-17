@@ -88,3 +88,12 @@ After fixes, run `node tools/shoot.mjs` again; comments stay on their screens so
 - `server/dev.ts`: the scenario entry. Same handler list, a copy of the schema (it refuses to start if the copy drifts), plus `devSeed`.
 
 Adding a handler: write it in `app.ts`, then list it in both entries. Either entry throws at startup if one is missing.
+
+## On your phone (home network)
+
+```bash
+FORK_SCENARIOS=1 sf dev --port 4192 --watch
+node tools/lan-proxy.mjs
+```
+
+Open the private URL `sf dev` prints, with `127.0.0.1:4192` swapped for `<this-mac>.local:4193`, once on the phone. Then `/dev` works there. The proxy rewrites Host, Origin and the realtime URL so the dev server treats the phone like localhost.
