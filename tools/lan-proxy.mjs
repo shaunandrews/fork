@@ -1,15 +1,24 @@
 // Phone access on the home network. `sf dev` only fully works when the browser
 // talks to it as 127.0.0.1, so this forwards LAN requests (and websockets) to
 // the dev server with Host and Origin rewritten. See DEV.md.
-//   node tools/lan-proxy.mjs [listenPort=4193] [targetPort=4192]
+// It also signs every request in with the dev server's private key, so the
+// phone needs no one-time link. Anyone on the home network or Tailscale can
+// open it while it runs.
+//   FORK_DEV_KEY=<key from the private URL> node tools/lan-proxy.mjs [listenPort=4193] [targetPort=4192]
+// tools/phone.sh starts the dev server and this proxy together.
 import http from "node:http";
 import net from "node:net";
 
 const LISTEN = Number(process.argv[2] || 4193);
 const TARGET = Number(process.argv[3] || 4192);
 const target = `127.0.0.1:${TARGET}`;
+const KEY = process.env.FORK_DEV_KEY || "";
 const rewrite = (h) => {
   const out = { ...h, host: target };
+  if (KEY) {
+    const others = (out.cookie || "").split(";").map((c) => c.trim()).filter((c) => c && !c.startsWith("spacefast_zero_dev_"));
+    out.cookie = [...others, `spacefast_zero_dev_${TARGET}=${KEY}`].join("; ");
+  }
   if (out.origin) out.origin = `http://${target}`;
   if (out.referer) out.referer = out.referer.replace(/^https?:\/\/[^/]+/, `http://${target}`);
   return out;

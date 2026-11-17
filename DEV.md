@@ -89,11 +89,10 @@ After fixes, run `node tools/shoot.mjs` again; comments stay on their screens so
 
 Adding a handler: write it in `app.ts`, then list it in both entries. Either entry throws at startup if one is missing.
 
-## On your phone (home network)
+## On your phone (home network or Tailscale)
 
 ```bash
-FORK_SCENARIOS=1 sf dev --port 4192 --watch
-node tools/lan-proxy.mjs
+tools/phone.sh
 ```
 
-Open the private URL `sf dev` prints, with `127.0.0.1:4192` swapped for `<this-mac>.local:4193`, once on the phone. Then `/dev` works there. The proxy rewrites Host, Origin and the realtime URL so the dev server treats the phone like localhost.
+Starts the scenario server and `tools/lan-proxy.mjs`, then prints the address: `http://<this-mac>.local:4193/dev` on home Wi-Fi, or the Mac's Tailscale name on port 4193 from anywhere. No one-time link: the proxy signs every request in with the dev server's key and rewrites Host, Origin and the realtime URL so the server treats the phone like localhost. Anyone on the home network or Tailscale can open it while it runs.
