@@ -1,12 +1,24 @@
-// Fork's component system, built on DESIGN.md tokens. Presentational only:
+// Fork's component system: shadcn/ui (client/components/ui/, Base UI underneath) wrapped
+// in Fork's names and DESIGN.md tokens. Screens use these, never raw elements. Presentational only:
 // no data fetching here, so every piece renders in the /dev/components library.
 //
-//   Atoms      Button, TextLink, Input, Textarea, Tag, VoteButton, CheckCircle, Thumb, Icon
+//   Atoms      Button, TextLink, Input, Textarea, Select, Tag, VoteButton, CheckCircle, Thumb, Icon
 //   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, EmptyState, SectionHeading
 //   Organisms  DayPlan, AisleGroup, Sheet (shadcn/ui Drawer + Dialog, in components/ui/)
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
-import { useEffect, useState } from "preact/hooks";
+import { cloneElement, isValidElement } from "preact";
+import { useEffect, useId, useState } from "preact/hooks";
+import { Badge } from "./components/ui/badge";
+import { Button as UIButton, buttonVariants } from "./components/ui/button";
+import { Checkbox } from "./components/ui/checkbox";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
+import { Field as UIField, FieldDescription, FieldError, FieldLabel } from "./components/ui/field";
+import { Input as UIInput } from "./components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./components/ui/input-group";
+import { NativeSelect } from "./components/ui/native-select";
+import { Textarea as UITextarea } from "./components/ui/textarea";
+import { Toggle } from "./components/ui/toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
 import { MealImage, caption, displayMd } from "./layout";
@@ -18,49 +30,48 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "md" | "sm";
 
+// Fork's names for shadcn's Button variants (client/components/ui/button.tsx).
+const variantMap = { primary: "default", secondary: "outline", ghost: "ghost", danger: "destructive" } as const;
+const sizeMap = { md: "default", sm: "sm" } as const;
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
-const base = `inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-medium transition-opacity disabled:opacity-40 ${focus}`;
-const sizes: Record<ButtonSize, string> = { md: "h-11 px-5 text-[15px]", sm: "h-9 px-3.5 text-[15px]" };
-const variants: Record<ButtonVariant, string> = {
-  primary: "bg-action text-on-action hover:opacity-85",
-  secondary: "border border-line text-ink hover:bg-surface",
-  ghost: "text-ink-muted hover:text-ink",
-  danger: "bg-danger text-accent-foreground hover:opacity-85",
-};
 
 /** Class string for a button, for elements we don't render ourselves (sign-in buttons, Links). */
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md") {
-  return cx(base, sizes[size], variants[variant], variant === "ghost" && "px-3");
+  return buttonVariants({ variant: variantMap[variant], size: sizeMap[size] });
 }
 
-// Legacy names used across screens.
-export const btn = cx(base, sizes.md);
+// Legacy names used across screens. All are shadcn Button styles.
+export const btn = buttonClass("primary");
 export const btnPrimary = buttonClass("primary");
 export const btnQuiet = buttonClass("secondary");
 export const btnGhost = buttonClass("ghost");
-export const input = "w-full rounded-[12px] bg-surface px-4 py-3 text-[17px] text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-ink";
-export const card = "rounded-[12px] bg-surface p-4";
+export const input =
+  "h-12 w-full min-w-0 rounded-xl border border-transparent bg-surface px-4 py-2 text-[17px] text-ink outline-none placeholder:text-ink-muted focus-visible:ring-3 focus-visible:ring-ring/50";
+export const card = "rounded-xl bg-surface p-4";
 export const textLinkClass = "text-[15px] font-medium text-ink underline decoration-line underline-offset-4 hover:decoration-ink";
 
+/** shadcn Button with Fork's variant names. `to` renders it as a router Link. */
 export function Button({
   variant = "primary",
   size = "md",
   to,
   class: extra,
+  className,
   children,
   ...rest
-}: { variant?: ButtonVariant; size?: ButtonSize; to?: string; class?: string; children: any } & Record<string, any>) {
-  const c = cx(buttonClass(variant, size), extra);
+}: { variant?: ButtonVariant; size?: ButtonSize; to?: string; class?: string; className?: string; children: any } & Record<string, any>) {
+  const props = { variant: variantMap[variant], size: sizeMap[size], className: cx(extra, className), "data-component": "Button", ...rest };
   if (to)
     return (
-      <Link to={to} class={c} data-component="Button" {...rest}>
+      <UIButton {...props} nativeButton={false} render={<Link to={to} />}>
         {children}
-      </Link>
+      </UIButton>
     );
+  // Base UI defaults to type="button"; keep the HTML default so a Button in a form submits it.
   return (
-    <button class={c} data-component="Button" {...rest}>
+    <UIButton type="submit" {...props}>
       {children}
-    </button>
+    </UIButton>
   );
 }
 
@@ -72,66 +83,72 @@ export function TextLink({ to, children }: { to: string; children: any }) {
   );
 }
 
-export function Input(props: Record<string, any>) {
-  return <input {...props} class={cx(input, props.class)} />;
+export function Input({ class: c, className, ...props }: Record<string, any>) {
+  return <UIInput {...props} className={cx(c, className)} />;
 }
 
-export function Textarea(props: Record<string, any>) {
-  return <textarea rows={4} {...props} class={cx(input, "leading-relaxed", props.class)} />;
+export function Textarea({ class: c, className, ...props }: Record<string, any>) {
+  return <UITextarea rows={4} {...props} className={cx(c, className)} />;
 }
 
+/** shadcn NativeSelect: the phone's own picker, styled like an input. */
+export function Select({ class: c, className, children, ...props }: Record<string, any>) {
+  return (
+    <NativeSelect {...props} className={cx(c, className)}>
+      {children}
+    </NativeSelect>
+  );
+}
+
+/** shadcn Badge. Basil means state (picked, done); neutral is a plain label. */
 export function Tag({ tone = "accent", children }: { tone?: "accent" | "neutral"; children: any }) {
   return (
-    <span
-      data-component="Tag"
-      class={cx(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-[13px] font-medium leading-none",
-        tone === "accent" ? "bg-accent text-accent-foreground" : "bg-surface-strong text-ink",
-      )}
-    >
+    <Badge data-component="Tag" className={cx("h-6 px-2.5 text-[13px]", tone === "accent" ? "bg-accent text-accent-foreground" : "bg-surface-strong text-ink")}>
       {children}
-    </span>
+    </Badge>
   );
 }
 
+/** shadcn Toggle as an upvote: pressed is Basil. Without onClick it's a plain count. */
 export function VoteButton({ count, active, onClick, label }: { count: number; active?: boolean; onClick?: () => void; label?: string }) {
-  const Tagname: any = onClick ? "button" : "span";
+  const arrow = (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+      <path d="M6 2.5 10 8.5H2z" fill="currentColor" />
+    </svg>
+  );
+  const look = "h-9 min-w-[3.25rem] gap-1.5 rounded-full border px-3 text-[15px] font-medium tabular-nums";
+  if (!onClick)
+    return (
+      <span data-component="VoteButton" class={cx("inline-flex items-center justify-center", look, active ? "border-accent bg-accent-soft text-accent" : "border-line text-ink-muted")}>
+        {arrow}
+        {count}
+        <span class="sr-only">votes</span>
+      </span>
+    );
   return (
-    <Tagname
+    <Toggle
       data-component="VoteButton"
-      {...(onClick ? { onClick, "aria-pressed": !!active, "aria-label": label ?? (active ? "Remove my vote" : "Vote for this") } : {})}
-      class={cx(
-        "inline-flex h-9 min-w-[3.25rem] items-center justify-center gap-1.5 rounded-full border px-3 text-[15px] font-medium tabular-nums transition-colors",
-        active ? "border-accent bg-accent-soft text-accent" : "border-line text-ink-muted",
-        onClick && !active && "hover:text-ink",
-        onClick && focus,
-      )}
+      pressed={!!active}
+      onPressedChange={() => onClick()}
+      aria-label={label ?? (active ? "Remove my vote" : "Vote for this")}
+      className={cx(look, "border-line text-ink-muted hover:bg-transparent hover:text-ink data-[pressed]:border-accent data-[pressed]:bg-accent-soft data-[pressed]:text-accent")}
     >
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-        <path d="M6 2.5 10 8.5H2z" fill="currentColor" />
-      </svg>
+      {arrow}
       {count}
-      {!onClick ? <span class="sr-only">votes</span> : null}
-    </Tagname>
+    </Toggle>
   );
 }
 
+/** Round check, Basil when done. Display only: the row it sits in is the control. */
 export function CheckCircle({ checked }: { checked: boolean }) {
   return (
-    <span
+    <Checkbox
       data-component="CheckCircle"
-      class={cx(
-        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
-        checked ? "border-accent bg-accent text-accent-foreground" : "border-line",
-      )}
+      checked={checked}
+      tabIndex={-1}
       aria-hidden="true"
-    >
-      {checked ? (
-        <svg width="12" height="12" viewBox="0 0 12 12">
-          <path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      ) : null}
-    </span>
+      className="pointer-events-none size-[22px] rounded-full border-[1.5px] border-line data-checked:border-accent data-checked:bg-accent data-checked:text-accent-foreground"
+    />
   );
 }
 
@@ -170,30 +187,31 @@ export function Icon({ name, size = 24 }: { name: keyof typeof ICONS | string; s
 
 // ========== molecules ==========
 
+/** shadcn Field: a visible label above the control, the hint below, or the error in its place. */
 export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string | null; children: any }) {
+  // Tie the label to the control: give the child an id unless it has one.
+  const auto = useId();
+  const id = isValidElement(children) && (children.props as any).id ? (children.props as any).id : auto;
   return (
-    <label class="flex flex-col gap-2" data-component="Field">
-      <span class="text-[15px] font-medium text-ink">{label}</span>
-      {children}
-      {error ? (
-        <span role="alert" class="text-[15px] text-danger">
-          {error}
-        </span>
-      ) : hint ? (
-        <span class="text-[15px] text-ink-muted">{hint}</span>
-      ) : null}
-    </label>
+    <UIField data-component="Field" data-invalid={error ? true : undefined}>
+      <FieldLabel htmlFor={id} className="text-[15px] font-medium text-ink">
+        {label}
+      </FieldLabel>
+      {isValidElement(children) ? cloneElement(children as any, { id }) : children}
+      {error ? <FieldError className="text-[15px]">{error}</FieldError> : hint ? <FieldDescription className="text-[15px] text-ink-muted">{hint}</FieldDescription> : null}
+    </UIField>
   );
 }
 
+/** shadcn InputGroup with a search icon. */
 export function SearchField({ value, onInput, placeholder }: { value: string; onInput: (v: string) => void; placeholder: string }) {
   return (
-    <div class="relative w-full" data-component="SearchField">
-      <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted">
+    <InputGroup data-component="SearchField" className="h-12 rounded-xl border-transparent bg-surface">
+      <InputGroupAddon className="pl-4 text-ink-muted">
         <Icon name="search" size={18} />
-      </span>
-      <input type="search" class={cx(input, "pl-11")} placeholder={placeholder} value={value} onInput={(e) => onInput((e.target as HTMLInputElement).value)} />
-    </div>
+      </InputGroupAddon>
+      <InputGroupInput type="search" className="text-[17px]" placeholder={placeholder} value={value} onInput={(e: any) => onInput(e.target.value)} />
+    </InputGroup>
   );
 }
 
@@ -328,13 +346,16 @@ export function ListRow({ name, amount, detail, checked, onToggle, onRemove }: {
   );
 }
 
+/** shadcn Empty: one line saying what's missing, one action that fixes it. */
 export function EmptyState({ title, body, action }: { title: string; body?: string; action?: any }) {
   return (
-    <div class="max-w-[30rem] py-6" data-component="EmptyState">
-      <p class="font-display text-[26px] font-medium leading-tight">{title}</p>
-      {body ? <p class="mt-2 text-[17px] leading-relaxed text-ink-muted">{body}</p> : null}
-      {action ? <div class="mt-6">{action}</div> : null}
-    </div>
+    <Empty data-component="EmptyState" className="items-start p-0 py-6 text-left md:p-0 md:py-6">
+      <EmptyHeader className="max-w-[30rem] items-start text-left">
+        <EmptyTitle className="font-display text-[26px] font-medium leading-tight tracking-normal">{title}</EmptyTitle>
+        {body ? <EmptyDescription className="text-[17px] leading-relaxed text-ink-muted">{body}</EmptyDescription> : null}
+      </EmptyHeader>
+      {action ? <EmptyContent className="items-start">{action}</EmptyContent> : null}
+    </Empty>
   );
 }
 

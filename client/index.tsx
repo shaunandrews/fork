@@ -48,6 +48,25 @@ if (typeof document !== "undefined" && !document.getElementById("fork-fonts")) {
   document.head.append(pre, css);
 }
 
+// shadcn/ui token mapping. Zero aliases shadcn's names onto Fork's tokens, but maps
+// primary to Basil and popovers to surface. Fork's primary action is ink (DESIGN.md:
+// Basil is state only), focus rings are ink, and sheets sit on canvas.
+if (typeof document !== "undefined" && !document.getElementById("fork-shadcn")) {
+  const style = document.createElement("style");
+  style.id = "fork-shadcn";
+  style.textContent = `:root {
+  --color-primary: var(--color-action);
+  --color-primary-foreground: var(--color-on-action);
+  --color-ring: var(--color-ink);
+  --color-popover: var(--color-canvas);
+  --color-popover-foreground: var(--color-ink);
+  --color-input: var(--color-line);
+  --radius: 12px;
+}
+body { position: relative; }`;
+  document.head.append(style);
+}
+
 // ---------- small helpers ----------
 
 export function useRunner() {
