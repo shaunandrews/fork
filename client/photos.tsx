@@ -67,8 +67,19 @@ async function searchOpenverse(q: string, signal: AbortSignal): Promise<Result[]
   }));
 }
 
+/** "Grandma's lasagna" → "lasagna": drop possessives and filler, so family names still find the dish. */
+export function dishWords(title: string) {
+  const out = title
+    .replace(/\b[\w-]+['’]s\b/gi, " ")
+    .replace(/\b(homemade|easy|quick|best|famous|classic|simple|our|my|the|night|special)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return out || title;
+}
+
 /** Results for a meal name: Commons first (fast), Openverse added when it answers (it can be slow). */
-function useSearch(q: string) {
+function useSearch(title: string) {
+  const q = dishWords(title);
   const [results, setResults] = useState<Result[] | null>(null);
   useEffect(() => {
     const ctl = new AbortController();

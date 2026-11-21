@@ -491,13 +491,13 @@ export function Sheet({
   if (desktop)
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="gap-0 rounded-[20px] bg-canvas p-0 text-ink sm:max-w-[520px]" data-component="Sheet">
+        <DialogContent className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 rounded-[20px] bg-canvas p-0 text-ink sm:max-w-[520px]" data-component="Sheet">
           <DialogHeader className="px-6 pb-2 pt-6">
             <DialogTitle className={heading}>{title}</DialogTitle>
             {subtitle ? <DialogDescription className={sub}>{subtitle}</DialogDescription> : null}
           </DialogHeader>
-          <Body class="flex flex-col" onSubmit={onSubmit}>
-            <div class="px-6 py-3">{children}</div>
+          <Body class="flex min-h-0 flex-1 flex-col" onSubmit={onSubmit}>
+            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-3">{children}</div>
             {actions ? <div class="flex justify-end gap-2 px-6 pb-6 pt-3">{actions}</div> : null}
           </Body>
         </DialogContent>
