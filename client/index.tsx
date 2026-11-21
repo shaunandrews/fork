@@ -653,82 +653,26 @@ function JoinPage({ code: codeProp }: { code?: string }) {
 type Day = NonNullable<ReturnType<typeof api.useQuery<"week">>>[number];
 
 /**
- * Suggest a meal for a day. Opens on the meals you can pick from (the family's recipes, then
- * Fork's ideas), searchable; tap one and it's suggested. Making a new meal is the secondary path:
- * Return with no match, or "Add … as a new meal", opens the name and ingredients.
+ * The meals you can suggest for a day: the family's own first, then Fork's ideas, searchable.
+ * Tap one and it's suggested. Making a new meal is secondary: the button at the bottom, or Return
+ * with no match. Used inside SuggestSheet, and right in the day's sheet when nothing's suggested yet.
  */
-function SuggestSheet({ date, dayLabel, taken = [], onDone }: { date: string; dayLabel: string; taken?: string[]; onDone: () => void }) {
+function MealPicker({ date, taken = [], onPicked, onNew, autoFocus = true }: { date: string; taken?: string[]; onPicked: () => void; onNew: (name: string) => void; autoFocus?: boolean }) {
   const suggest = api.useMutation("suggestMeal");
   const meals = api.useQuery("meals");
   const photos = usePhotos();
   const [q, setQ] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-  const [ingredients, setIngredients] = useState<string[]>([]);
   const r = useRunner();
-
   const needle = q.trim().toLowerCase();
   const already = new Set(taken.map((t) => t.toLowerCase()));
   const mine = (meals ?? []).filter((m) => !needle || m.title.toLowerCase().includes(needle) || m.preview.some((p) => p.includes(needle)));
   const mineKeys = new Set((meals ?? []).map((m) => m.title.toLowerCase()));
   const ideas = RECIPES.filter((x) => !mineKeys.has(x.title.toLowerCase()) && (needle ? x.title.toLowerCase().includes(needle) || x.tags.includes(needle) : true)).slice(0, needle ? 20 : 8);
-  const first = mine[0]?.title ?? ideas[0]?.title ?? null;
 
   const pick = async (t: string) => {
     const ok = await r.run(() => suggest(date, t, "").then(() => true));
-    if (ok) onDone();
+    if (ok) onPicked();
   };
-  const startNew = () => {
-    setTitle(q.trim());
-    setIngredients([]);
-    setCreating(true);
-  };
-  // With the name already typed, go straight to ingredients (the sheet would focus the name).
-  useEffect(() => {
-    if (!creating || !title) return;
-    const t = setTimeout(() => document.querySelector<HTMLInputElement>('[data-component="IngredientEntry"] input')?.focus(), 350);
-    return () => clearTimeout(t);
-  }, [creating]);
-
-  if (creating)
-    return (
-      <Sheet
-        title="New meal"
-        subtitle={dayLabel}
-        onClose={onDone}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!title.trim()) return;
-          const ok = await r.run(() => suggest(date, title, ingredients.join("\n")).then(() => true));
-          if (ok) onDone();
-        }}
-        actions={
-          <>
-            <Button type="button" variant="secondary" class={sheetAction} onClick={() => setCreating(false)}>
-              Back
-            </Button>
-            <Button class={sheetAction} disabled={r.busy || !title.trim()}>
-              Suggest
-            </Button>
-          </>
-        }
-      >
-        <div class="flex flex-col gap-5">
-          <Field label="What's it called?">
-            <Input autoFocus={!title} placeholder="Chicken parm" value={title} onInput={(e: any) => setTitle(e.target.value)} />
-          </Field>
-          <IngredientEntry
-            autoFocus={!!title}
-            label="Ingredients (optional)"
-            hint="Return adds one. Leave it empty and Fork fills in a usual recipe when it knows the dish."
-            lines={ingredients}
-            onChange={setIngredients}
-          />
-          <ErrorLine text={r.error} />
-        </div>
-      </Sheet>
-    );
-
   const row = (t: string, meta: string) => {
     const isTaken = already.has(t.toLowerCase());
     return (
@@ -742,40 +686,99 @@ function SuggestSheet({ date, dayLabel, taken = [], onDone }: { date: string; da
       />
     );
   };
-
   return (
-    <Sheet title="Suggest a meal" subtitle={dayLabel} onClose={onDone}>
-      <div class="flex flex-col gap-4">
-        <SearchField
-          value={q}
-          onInput={setQ}
-          placeholder="Search meals"
-          onEnter={() => {
-            const exact = [...mine.map((m) => m.title), ...ideas.map((x) => x.title)].find((t) => t.toLowerCase() === needle);
-            if (exact) void pick(exact);
-            else if (needle && first && mine.length + ideas.length === 1) void pick(first);
-            else if (needle) startNew();
-          }}
+    <div class="flex flex-col gap-4" data-component="MealPicker">
+      <SearchField
+        value={q}
+        onInput={setQ}
+        autoFocus={autoFocus}
+        placeholder="Search meals"
+        onEnter={() => {
+          const all = [...mine.map((m) => m.title), ...ideas.map((x) => x.title)];
+          const exact = all.find((t) => t.toLowerCase() === needle) ?? (needle && all.length === 1 ? all[0] : null);
+          if (exact) void pick(exact);
+          else if (needle) onNew(q.trim());
+        }}
+      />
+      <ErrorLine text={r.error} />
+      {mine.length ? (
+        <section>
+          <p class={caption}>Your meals</p>
+          <ul>{mine.map((m) => row(m.title, m.timesPicked ? `Made ${m.timesPicked === 1 ? "once" : `${m.timesPicked} times`}` : "Not made yet"))}</ul>
+        </section>
+      ) : null}
+      {ideas.length ? (
+        <section>
+          <p class={caption}>{needle ? "From Fork's ideas" : "Ideas from Fork"}</p>
+          <ul>{ideas.map((x) => row(x.title, x.tags.slice(0, 2).join(" · ")))}</ul>
+        </section>
+      ) : null}
+      {needle && !mine.length && !ideas.length ? <p class="text-[15px] text-ink-muted">No meals match “{q.trim()}”.</p> : null}
+      <Button type="button" variant="secondary" class="w-full" onClick={() => onNew(q.trim())}>
+        <Icon name="plus" size={18} />
+        {needle ? `Add “${q.trim()}” as a new meal` : "New meal"}
+      </Button>
+    </div>
+  );
+}
+
+/** The new-meal form: a name and its ingredients. */
+function NewMealSheet({ date, dayLabel, name, onBack, onDone }: { date: string; dayLabel: string; name: string; onBack: () => void; onDone: () => void }) {
+  const suggest = api.useMutation("suggestMeal");
+  const [title, setTitle] = useState(name);
+  const [ingredients, setIngredients] = useState<string[]>([]);
+  const r = useRunner();
+  // With the name already typed, go straight to ingredients (the sheet would focus the name).
+  useEffect(() => {
+    if (!name) return;
+    const t = setTimeout(() => document.querySelector<HTMLInputElement>('[data-component="IngredientEntry"] input')?.focus(), 350);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <Sheet
+      title="New meal"
+      subtitle={dayLabel}
+      onClose={onDone}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        const ok = await r.run(() => suggest(date, title, ingredients.join("\n")).then(() => true));
+        if (ok) onDone();
+      }}
+      actions={
+        <>
+          <Button type="button" variant="secondary" class={sheetAction} onClick={onBack}>
+            Back
+          </Button>
+          <Button class={sheetAction} disabled={r.busy || !title.trim()}>
+            Suggest
+          </Button>
+        </>
+      }
+    >
+      <div class="flex flex-col gap-5">
+        <Field label="What's it called?">
+          <Input autoFocus={!name} placeholder="Chicken parm" value={title} onInput={(e: any) => setTitle(e.target.value)} />
+        </Field>
+        <IngredientEntry
+          label="Ingredients (optional)"
+          hint="Return adds one. Leave it empty and Fork fills in a usual recipe when it knows the dish."
+          lines={ingredients}
+          onChange={setIngredients}
         />
         <ErrorLine text={r.error} />
-        {mine.length ? (
-          <section>
-            <p class={caption}>Your meals</p>
-            <ul>{mine.map((m) => row(m.title, m.timesPicked ? `Made ${m.timesPicked === 1 ? "once" : `${m.timesPicked} times`}` : "Not made yet"))}</ul>
-          </section>
-        ) : null}
-        {ideas.length ? (
-          <section>
-            <p class={caption}>{needle ? "From Fork's ideas" : "Ideas from Fork"}</p>
-            <ul>{ideas.map((x) => row(x.title, x.tags.slice(0, 2).join(" · ")))}</ul>
-          </section>
-        ) : null}
-        {needle && !mine.length && !ideas.length ? <p class="text-[15px] text-ink-muted">No meals match “{q.trim()}”.</p> : null}
-        <Button type="button" variant="secondary" class="w-full" onClick={startNew}>
-          <Icon name="plus" size={18} />
-          {needle ? `Add “${q.trim()}” as a new meal` : "New meal"}
-        </Button>
       </div>
+    </Sheet>
+  );
+}
+
+/** Suggest a meal for a day: the MealPicker in a sheet, with the new-meal form as its second step. */
+function SuggestSheet({ date, dayLabel, taken = [], onDone }: { date: string; dayLabel: string; taken?: string[]; onDone: () => void }) {
+  const [creating, setCreating] = useState<string | null>(null);
+  if (creating !== null) return <NewMealSheet date={date} dayLabel={dayLabel} name={creating} onBack={() => setCreating(null)} onDone={onDone} />;
+  return (
+    <Sheet title="Suggest a meal" subtitle={dayLabel} onClose={onDone}>
+      <MealPicker date={date} taken={taken} onPicked={onDone} onNew={setCreating} />
     </Sheet>
   );
 }
@@ -831,6 +834,7 @@ function DayCard({ day, isToday, bare }: { day: Day; isToday: boolean; bare?: bo
   const chef = api.useMutation("setChef");
   const remove = api.useMutation("removeSuggestion");
   const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const r = useRunner();
@@ -868,14 +872,24 @@ function DayCard({ day, isToday, bare }: { day: Day; isToday: boolean; bare?: bo
       }
       footer={
         <>
-          <Button
-           variant="ghost"
-            size="sm"
-            class="-ml-3"
-            onClick={() => setAdding(true)}
-          >
-            + Suggest a meal
-          </Button>
+          {day.suggestions.length ? (
+            <Button variant="ghost" size="sm" class="-ml-3" onClick={() => setAdding(true)}>
+              + Suggest a meal
+            </Button>
+          ) : (
+            <div class="mt-4">
+              <MealPicker date={day.date} autoFocus={false} onPicked={() => {}} onNew={(name) => setNewName(name)} />
+            </div>
+          )}
+          {newName !== null ? (
+            <NewMealSheet
+              date={day.date}
+              dayLabel={`${isToday ? "Today" : dayName(day.date)}, ${shortDate(day.date)}`}
+              name={newName}
+              onBack={() => setNewName(null)}
+              onDone={() => setNewName(null)}
+            />
+          ) : null}
           {adding ? (
             <SuggestSheet
               date={day.date}
@@ -1067,7 +1081,7 @@ function DayRow({ day, label, onOpen }: { day: Day; label: string; onOpen: () =>
 /** Everything about one day, in a sheet: who's cooking, the ideas, votes, picking, adding one. */
 function DaySheet({ day, label, isToday, onClose }: { day: Day; label: string; isToday: boolean; onClose: () => void }) {
   return (
-    <Sheet title={label} subtitle={`${dayName(day.date)}, ${shortDate(day.date)}`} onClose={onClose}>
+    <Sheet title={label} subtitle={label === dayName(day.date) ? shortDate(day.date) : `${dayName(day.date)}, ${shortDate(day.date)}`} onClose={onClose}>
       <DayCard day={day} isToday={isToday} bare />
     </Sheet>
   );

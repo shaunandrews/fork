@@ -220,7 +220,7 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 /** shadcn InputGroup with a search icon. */
-export function SearchField({ value, onInput, placeholder, onEnter }: { value: string; onInput: (v: string) => void; placeholder: string; onEnter?: () => void }) {
+export function SearchField({ value, onInput, placeholder, onEnter, autoFocus }: { value: string; onInput: (v: string) => void; placeholder: string; onEnter?: () => void; autoFocus?: boolean }) {
   return (
     <InputGroup data-component="SearchField" className="h-12 rounded-xl border-transparent bg-surface">
       <InputGroupAddon className="pl-4 text-ink-muted">
@@ -228,6 +228,7 @@ export function SearchField({ value, onInput, placeholder, onEnter }: { value: s
       </InputGroupAddon>
       <InputGroupInput
         type="search"
+        autoFocus={autoFocus}
         enterKeyHint={onEnter ? "go" : "search"}
         className="text-[17px]"
         placeholder={placeholder}
