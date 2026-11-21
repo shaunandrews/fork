@@ -87,6 +87,17 @@ export const schema = {
   })
     .index("by_family", ["familyId"])
     .index("by_family_key", ["familyId", "key"]),
+  // One photo per meal name, per family: uploaded, taken, or picked from search.
+  photos: table({
+    familyId: id("families"),
+    key: string(),
+    url: string(),
+    source: string(), // "upload" or the search source, like "Wikimedia Commons"
+    credit: string().default(""),
+    creditUrl: string().default(""),
+  })
+    .index("by_family", ["familyId"])
+    .index("by_family_key", ["familyId", "key"]),
 };
 
 const queries = {
@@ -97,6 +108,7 @@ const queries = {
     ingredients: q.ingredients,
     week: q.week,
     list: q.list,
+    photos: q.photos,
 };
 
 const mutations = {
@@ -123,6 +135,8 @@ const mutations = {
     toggleItem: m.toggleItem,
     removeItem: m.removeItem,
     clearChecked: m.clearChecked,
+    setPhoto: m.setPhoto,
+    removePhoto: m.removePhoto,
 };
 
 assertListed("server/index.ts", q, queries, m, mutations);

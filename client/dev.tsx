@@ -23,7 +23,7 @@ export function DevFrame({ title, children }: { title: string; children: any }) 
     <div class="min-h-screen bg-canvas font-sans text-ink">
       <header class={`${container} flex h-16 items-center justify-between border-b border-line`}>
         <div class="flex items-baseline gap-3">
-          <Link to="/dev" class="font-display text-[24px] font-medium">
+          <Link to="/dev" class="font-display text-[24px] font-bold">
             Fork dev
           </Link>
         </div>

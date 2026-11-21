@@ -125,7 +125,7 @@ function Foundations({ mode }: { mode: Mode }) {
         </div>
       </Specimen>
 
-      <Specimen id="type" name="Type" mode={mode} usage="Newsreader for display, Geist for everything functional. One display-size line per screen.">
+      <Specimen id="type" name="Type" mode={mode} usage="Geist everywhere. Headings bold and tight, big enough to sit over a photo.">
         <div class="flex flex-col gap-5">
           {TYPE.map(([name, cls, sample]) => (
             <div key={name} class="grid gap-1 sm:grid-cols-[120px_1fr] sm:items-baseline sm:gap-4">

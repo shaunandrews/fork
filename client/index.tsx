@@ -15,6 +15,7 @@ import {
 } from "@spacefast/zero/client";
 import type app from "../server/index";
 import { addDays, dayName, shortDate, todayLocal } from "../shared/dates";
+import { PhotoPicker, photoFor, usePhotos } from "./photos";
 import {
   AppFrame,
   AppPage,
@@ -29,11 +30,13 @@ import {
   displayMd,
   displayXl,
   grid12,
+  flow,
+  usePageTitle,
 } from "./layout";
 
 export const api = createClient<typeof app>();
 
-// Web fonts from DESIGN.md: Newsreader for display, Geist for everything else.
+// Web font from DESIGN.md: Geist for everything, headings set bold and tight.
 // Zero has no stylesheet hook for @import, so the link goes in once at startup.
 if (typeof document !== "undefined" && !document.getElementById("fork-fonts")) {
   const pre = document.createElement("link");
@@ -44,7 +47,7 @@ if (typeof document !== "undefined" && !document.getElementById("fork-fonts")) {
   css.id = "fork-fonts";
   css.rel = "stylesheet";
   css.href =
-    "https://fonts.googleapis.com/css2?family=Geist:wght@400..600&family=Newsreader:opsz,wght@6..72,400..600&display=swap";
+    "https://fonts.googleapis.com/css2?family=Geist:wght@400..800&display=swap";
   document.head.append(pre, css);
 }
 
@@ -131,6 +134,8 @@ import {
   Sheet,
   SuggestionRow,
   Select,
+  Thumb,
+  Icon,
   SectionHeading,
   Confirm,
   PersonRow,
@@ -347,7 +352,7 @@ function Landing({ signedIn }: { signedIn: boolean }) {
                     />
                   ) : (
                     <span
-                      class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[8px] bg-surface-strong font-display text-[22px] font-medium"
+                      class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[8px] bg-surface-strong font-display text-[22px] font-bold"
                       aria-hidden="true"
                     >
                       {m.title[0]}
@@ -458,7 +463,7 @@ function Landing({ signedIn }: { signedIn: boolean }) {
 
       {/* Close. */}
       <section class={`${container} mt-28 md:mt-40`}>
-        <h2 class="max-w-[16ch] font-display text-[clamp(2.5rem,6vw,4rem)] font-medium leading-[1.0] tracking-[-0.025em]">
+        <h2 class="max-w-[16ch] font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.0] tracking-[-0.025em]">
           Tonight's dinner, settled in a minute.
         </h2>
         <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
@@ -829,7 +834,9 @@ function IngredientsEditor({
   );
 }
 
-function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
+function DayCard({ day, isToday, bare }: { day: Day; isToday: boolean; bare?: boolean }) {
+  const photos = usePhotos();
+  const [choosing, setChoosing] = useState<string | null>(null);
   const vote = api.useMutation("toggleVote");
   const pick = api.useMutation("pickMeal");
   const chef = api.useMutation("setChef");
@@ -840,6 +847,7 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
   const r = useRunner();
   return (
     <DayPlan
+      bare={bare}
       day={isToday ? "Today" : dayName(day.date)}
       date={shortDate(day.date)}
       isToday={isToday}
@@ -896,14 +904,18 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
               key={s.id}
               title={s.title}
               meta={`${s.fromFork ? `Idea from ${s.byName}` : `Suggested by ${s.mine ? "you" : s.byName}`}${s.ingredients.length ? ` · ${s.ingredients.length} ingredients` : ""}`}
+              photo={photoFor(photos, s.title)?.url ?? null}
               votes={s.votes}
               voted={s.iVoted}
               picked={s.id === day.pickedId}
               onVote={() => void r.run(() => vote(s.id))}
-              onPick={() => void r.run(() => pick(day.date, s.id))}
+
               open={open === s.id}
               onOpen={() => setOpen(open === s.id ? null : s.id)}
             >
+              {choosing === s.title ? (
+                <PhotoPicker title={s.title} current={photoFor(photos, s.title)} onClose={() => setChoosing(null)} />
+              ) : null}
               {editing === s.id ? (
                 <IngredientsEditor
                   title={s.title}
@@ -932,7 +944,10 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                       {s.ingredientsNote}. Edit to match how you make it.
                     </p>
                   ) : null}
-                  <div class="mt-2 flex flex-wrap gap-x-1">
+                  <div class="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2">
+                    <Button size="sm" variant={s.id === day.pickedId ? "secondary" : "primary"} onClick={() => void r.run(() => pick(day.date, s.id))}>
+                      {s.id === day.pickedId ? "Unpick" : "Pick for " + (isToday ? "tonight" : dayName(day.date))}
+                    </Button>
                     <Button
                      variant="ghost"
                       size="sm"
@@ -942,6 +957,9 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
                       {s.ingredientLines.length
                         ? "Edit ingredients"
                         : "+ Add ingredients"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setChoosing(s.title)}>
+                      {photoFor(photos, s.title) ? "Change photo" : "Add a photo"}
                     </Button>
                     {s.recipeSlug ? (
                       <Button
@@ -971,100 +989,178 @@ function DayCard({ day, isToday }: { day: Day; isToday: boolean }) {
   );
 }
 
+function dayLabel(date: string, today: string) {
+  if (date === today) return "Tonight";
+  if (date === addDays(today, 1)) return "Tomorrow";
+  return dayName(date);
+}
+
+/** The meal a day is showing: the pick, or the top idea so far. */
+function leadOf(day: Day) {
+  return day.suggestions.find((s) => s.id === day.pickedId) ?? day.suggestions[0] ?? null;
+}
+
+/** Tonight, big: the meal's photo edge to edge with its name over it, and one action. */
+function TonightHero({ day, onOpen }: { day: Day; onOpen: () => void }) {
+  const photos = usePhotos();
+  const chef = api.useMutation("setChef");
+  const [choosing, setChoosing] = useState(false);
+  const r = useRunner();
+  const lead = leadOf(day);
+  const picked = !!lead && lead.id === day.pickedId;
+  const pic = lead ? photoFor(photos, lead.title) : null;
+  const chefLine = day.chefName ? (day.iAmChef ? "You're cooking" : `${day.chefName} is cooking`) : "Nobody's cooking yet";
+  const meta = lead
+    ? picked
+      ? chefLine
+      : `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"}, nothing picked yet`
+    : "No ideas yet";
+  return (
+    <section class="relative -mx-5 overflow-hidden md:mx-0 md:rounded-3xl" data-component="TonightHero">
+      <button type="button" class="block w-full text-left" onClick={onOpen} aria-label={`Open tonight: ${lead?.title ?? "no ideas yet"}`}>
+        <MealImage
+          id={pic?.url ?? null}
+          title={lead?.title ?? ""}
+          showTitle={false}
+          eager
+          sizes="(min-width: 768px) 640px, 100vw"
+          widths={[800, 1280]}
+          class="aspect-[4/5] w-full md:aspect-[16/10]"
+        />
+        <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      </button>
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 p-5 text-white md:p-8">
+        <p class="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/80">Tonight</p>
+        <h2 class="mt-1 text-[clamp(2.25rem,9vw,3.5rem)] font-bold leading-[1] tracking-[-0.04em]">{lead?.title ?? "What's for dinner?"}</h2>
+        <p class="mt-2 text-[15px] text-white/85">{meta}</p>
+        <div class="pointer-events-auto mt-5 flex gap-2">
+          {lead && picked && !day.chefName ? (
+            <Button type="button" class="bg-white text-black hover:bg-white/90" disabled={r.busy} onClick={() => void r.run(() => chef(day.date, true))}>
+              I'll cook
+            </Button>
+          ) : (
+            <Button type="button" class="bg-white text-black hover:bg-white/90" onClick={onOpen}>
+              {lead ? (picked ? "See the plan" : "Vote and pick") : "Suggest a meal"}
+            </Button>
+          )}
+          {lead ? (
+            <Button type="button" variant="ghost" class="text-white hover:bg-white/15 hover:text-white" onClick={() => setChoosing(true)}>
+              <Icon name="camera" size={18} />
+              {pic ? "Photo" : "Add photo"}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {choosing && lead ? <PhotoPicker title={lead.title} current={pic} onClose={() => setChoosing(false)} /> : null}
+      <ErrorLine text={r.error} />
+    </section>
+  );
+}
+
+/** One upcoming day as a row: the meal's photo, the day, and what's planned. */
+function DayRow({ day, label, onOpen }: { day: Day; label: string; onOpen: () => void }) {
+  const photos = usePhotos();
+  const lead = leadOf(day);
+  const picked = !!lead && lead.id === day.pickedId;
+  const meta = picked
+    ? day.chefName
+      ? day.iAmChef
+        ? "You're cooking"
+        : `${day.chefName} is cooking`
+      : "Needs a cook"
+    : day.suggestions.length
+      ? `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"} to vote on`
+      : "Nothing planned";
+  return (
+    <li>
+      <button type="button" class="flex w-full items-center gap-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-ink" onClick={onOpen} data-component="DayRow">
+        {lead ? (
+          <Thumb title={lead.title} photo={photoFor(photos, lead.title)?.url ?? null} size="lg" />
+        ) : (
+          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-dashed border-line text-ink-muted">
+            <Icon name="plus" size={20} />
+          </span>
+        )}
+        <span class="min-w-0 flex-1">
+          <span class="block text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
+            {label} · {shortDate(day.date)}
+          </span>
+          <span class={`block truncate text-[19px] font-semibold tracking-[-0.02em] ${lead ? "text-ink" : "text-ink-muted"}`}>
+            {lead ? lead.title : "Add an idea"}
+          </span>
+          <span class="block truncate text-[15px] text-ink-muted">{meta}</span>
+        </span>
+        <span class="text-ink-muted">
+          <Icon name="chevronRight" size={20} />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** Everything about one day, in a sheet: who's cooking, the ideas, votes, picking, adding one. */
+function DaySheet({ day, label, isToday, onClose }: { day: Day; label: string; isToday: boolean; onClose: () => void }) {
+  return (
+    <Sheet title={label} subtitle={`${dayName(day.date)}, ${shortDate(day.date)}`} onClose={onClose}>
+      <DayCard day={day} isToday={isToday} bare />
+    </Sheet>
+  );
+}
+
 function WeekPage() {
   const today = todayLocal();
   const [offset, setOffset] = useState(0);
   const start = addDays(today, offset * 7);
   const week = api.useQuery("week", start, 7);
   const planAhead = api.useMutation("planAhead");
+  const [openDate, setOpenDate] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const r = useRunner();
+  usePageTitle("Week");
+  if (week === undefined) return <Loading />;
+  const first = offset === 0 ? week[0] : null;
+  const rest = offset === 0 ? week.slice(1) : week;
+  const open = week.find((d) => d.date === openDate) ?? null;
   return (
-    <AppPage
-      title={
-        offset === 0
-          ? "This week"
-          : `${shortDate(start)} – ${shortDate(addDays(start, 6))}`
-      }
-      tabTitle="Week"
-      actions={
-        <>
+    <div class={container}>
+      <div class={`${flow} pt-4 md:pt-10`}>
+        {first ? <TonightHero day={first} onOpen={() => setOpenDate(first.date)} /> : null}
+
+        <div class="mt-8 flex items-center justify-between">
+          <h1 class="text-[22px] font-bold tracking-[-0.03em]">{offset === 0 ? "Coming up" : `${shortDate(start)} – ${shortDate(addDays(start, 6))}`}</h1>
           <div class="flex items-center">
-            <Button
-             variant="ghost"
-              disabled={offset <= 0}
-              onClick={() => setOffset(offset - 1)}
-              aria-label="Previous week"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 16 16"
-                aria-hidden="true"
-              >
-                <path
-                  d="M10 3.5 5.5 8l4.5 4.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+            <Button variant="ghost" size="sm" class="size-9 px-0" disabled={offset <= 0} onClick={() => setOffset(offset - 1)} aria-label="Previous week">
+              <Icon name="chevronLeft" size={18} />
             </Button>
-            <Button
-             variant="ghost"
-              onClick={() => setOffset(offset + 1)}
-              aria-label="Next week"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 16 16"
-                aria-hidden="true"
-              >
-                <path
-                  d="M6 3.5 10.5 8 6 12.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+            <Button variant="ghost" size="sm" class="size-9 px-0" onClick={() => setOffset(offset + 1)} aria-label="Next week">
+              <Icon name="chevronRight" size={18} />
             </Button>
           </div>
+        </div>
+        <ul class="mt-1 divide-y divide-line">
+          {rest.map((d) => (
+            <DayRow key={d.date} day={d} label={dayLabel(d.date, today)} onOpen={() => setOpenDate(d.date)} />
+          ))}
+        </ul>
+        {rest.some((d) => !d.suggestions.length) ? (
           <Button
-           variant="secondary"
+            variant="secondary"
+            class="mt-4 w-full"
             disabled={r.busy}
             onClick={async () => {
               setNote(null);
               const res = await r.run(() => planAhead(start, 7));
-              if (res)
-                setNote(
-                  res.added
-                    ? `Added ${res.added} ideas to days with nothing suggested yet.`
-                    : "Every day already has a suggestion.",
-                );
+              if (res) setNote(res.added ? `Added ${res.added} ideas to empty days.` : "Every day already has an idea.");
             }}
           >
-            Fill empty days
+            Fill empty days with ideas
           </Button>
-        </>
-      }
-    >
-      {note ? <p class="mb-4 text-[15px] text-ink-muted">{note}</p> : null}
-      <ErrorLine text={r.error} />
-      {week === undefined ? (
-        <Loading />
-      ) : (
-        <div class="flex flex-col gap-10">
-          {week.map((d) => (
-            <DayCard key={d.date} day={d} isToday={d.date === today} />
-          ))}
-        </div>
-      )}
-    </AppPage>
+        ) : null}
+        {note ? <p class="mt-3 text-[15px] text-ink-muted">{note}</p> : null}
+        <ErrorLine text={r.error} />
+      </div>
+      {open ? <DaySheet day={open} label={dayLabel(open.date, today)} isToday={open.date === today} onClose={() => setOpenDate(null)} /> : null}
+    </div>
   );
 }
 

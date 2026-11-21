@@ -8,7 +8,7 @@ import { matchRecipe } from "../shared/match";
 
 // The schema lives in each entry (index.ts, dev.ts): Spacefast reads it from the entry's source.
 
-const ALL = ["me", "week", "list", "meals", "recipe", "ingredients"];
+const ALL = ["me", "week", "list", "meals", "recipe", "ingredients", "photos"];
 
 type Ctx = { auth: { requireSignedIn(): { userId: string; displayName: string } }; db: any };
 
@@ -249,6 +249,15 @@ function ingredientsOf(json: string): Ingredient[] {
 }
 
 export const queries = {
+    /** The family's meal photos, keyed by meal name (lowercase, single spaces). */
+    photos: query(async (ctx) => {
+      const { familyId } = await requireFamily(ctx as any);
+      const rows = await ctx.db.photos.withIndex("by_family", (r) => r.eq("familyId", familyId)).collect();
+      const out: Record<string, { url: string; credit: string; creditUrl: string; source: string }> = {};
+      for (const p of rows) out[p.key as string] = { url: p.url as string, credit: p.credit as string, creditUrl: p.creditUrl as string, source: p.source as string };
+      return out;
+    }),
+
     me: query(async (ctx) => {
       const { me, member } = await membership(ctx as any);
       if (!member) return { displayName: me.displayName, family: null, members: [] as { name: string; isMe: boolean; isOwner: boolean }[] };
@@ -397,6 +406,26 @@ export const queries = {
 };
 
 export const mutations = {
+    setPhoto: mutation(async (ctx, title: string, url: string, source: string, credit: string, creditUrl: string) => {
+      const { familyId } = await requireFamily(ctx as any);
+      const key = mealKey(clean(title, 120));
+      const u = clean(url, 1000);
+      if (!key) throw new Error("Which meal is this photo for?");
+      if (!/^(https:\/\/|\/(?!\/))/.test(u)) throw new Error("That photo link doesn't look right.");
+      const row = { url: u, source: clean(source, 60) || "upload", credit: clean(credit, 200), creditUrl: clean(creditUrl, 500) };
+      const existing = await ctx.db.photos.withIndex("by_family_key", (r) => r.eq("familyId", familyId).eq("key", key)).first();
+      if (existing) await ctx.db.photos.update(existing.id, row);
+      else await ctx.db.photos.insert({ familyId, key, ...row });
+      ctx.invalidate("photos");
+    }),
+
+    removePhoto: mutation(async (ctx, title: string) => {
+      const { familyId } = await requireFamily(ctx as any);
+      const existing = await ctx.db.photos.withIndex("by_family_key", (r) => r.eq("familyId", familyId).eq("key", mealKey(clean(title, 120)))).first();
+      if (existing) await ctx.db.photos.delete(existing.id);
+      ctx.invalidate("photos");
+    }),
+
     createFamily: mutation(async (ctx, name: string, displayName: string) => {
       const { me, member } = await membership(ctx as any);
       if (member) throw new Error("You're already in a family.");

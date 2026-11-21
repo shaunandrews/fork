@@ -95,6 +95,17 @@ const schema = {
   })
     .index("by_family", ["familyId"])
     .index("by_family_key", ["familyId", "key"]),
+  // One photo per meal name, per family: uploaded, taken, or picked from search.
+  photos: table({
+    familyId: id("families"),
+    key: string(),
+    url: string(),
+    source: string(), // "upload" or the search source, like "Wikimedia Commons"
+    credit: string().default(""),
+    creditUrl: string().default(""),
+  })
+    .index("by_family", ["familyId"])
+    .index("by_family_key", ["familyId", "key"]),
 };
 
 if (JSON.stringify(schema) !== JSON.stringify(prodSchema)) {
@@ -136,6 +147,7 @@ const devSeed = mutation(async (ctx: any, today: string) => {
   await wipe(ctx.db.listEntries, "by_family");
   await wipe(ctx.db.meals, "by_family");
   await wipe(ctx.db.ingredients, "by_family");
+  await wipe(ctx.db.photos, "by_family");
   await wipe(ctx.db.members, "by_user");
   await wipe(ctx.db.families, "by_invite");
   const d = (n: number) => addDays(today, n);
@@ -189,6 +201,16 @@ const devSeed = mutation(async (ctx: any, today: string) => {
     ],
   }));
 
+  // Photos for most of the Andrews' meals (the same Unsplash shots the landing page uses).
+  const shot = (id: string) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1600&q=75`;
+  for (const [title, id] of [
+    ["Spaghetti bolognese", "1551892374-ecf8754cf8b0"],
+    ["Homemade pizza night", "1565299624946-b28f40a0ae38"],
+    ["Lemon herb roast chicken", "1606728035253-49e8a23146de"],
+    ["Black bean burrito bowls", "1716392976013-66d90cac4411"],
+    ["Beef tacos", "1768716575003-2f7450b1344a"],
+  ]) await m.setPhoto(sam, title, shot(id), "Unsplash", "", "");
+
   // Shopping: a manual item, and Maya has ticked two things.
   await m.addItem(maya, "Paper towels");
   const list: any = await q.list(maya);
@@ -218,6 +240,7 @@ const queries = {
     ingredients: q.ingredients,
     week: q.week,
     list: q.list,
+    photos: q.photos,
   devStatus,
 };
 
@@ -245,6 +268,8 @@ const mutations = {
     toggleItem: m.toggleItem,
     removeItem: m.removeItem,
     clearChecked: m.clearChecked,
+    setPhoto: m.setPhoto,
+    removePhoto: m.removePhoto,
   devSeed,
 };
 

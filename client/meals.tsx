@@ -6,6 +6,17 @@ import { Link, navigate, useLocation } from "@spacefast/zero/client";
 import { api, card, ErrorLine, Loading, SuggestOnDay, useRunner } from "./index";
 import { AISLES, formatAmount, parseIngredient } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
+import { PhotoPicker, photoFor, usePhotos } from "./photos";
+
+/** "Add photo" / "Photo" over a meal's hero. */
+function PhotoButton({ has, onClick }: { has: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} class="inline-flex h-10 items-center gap-1.5 rounded-full bg-black/25 px-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35">
+      <Icon name="camera" size={18} />
+      {has ? "Photo" : "Add photo"}
+    </button>
+  );
+}
 import { dayName, shortDate } from "../shared/dates";
 import { AppPage, DetailTemplate, cardGrid, displayMd } from "./layout";
 import { AisleGroup, Button, Confirm, EmptyState, Field, Icon, Input, MealTile, SearchField, Select, Sheet, Tag, Textarea, buttonClass, sheetAction } from "./ui";
@@ -38,6 +49,7 @@ export const MEALS_NAV = [
 
 export function RecipesPage() {
   const meals = api.useQuery("meals");
+  const photos = usePhotos();
   const [q, setQ] = useState("");
   if (meals === undefined) return <Loading />;
   const needle = q.trim().toLowerCase();
@@ -57,8 +69,8 @@ export function RecipesPage() {
               <MealTile
                 to={`/recipe/${m.slug}`}
                 title={m.title}
-                eyebrow={`${madeLine(m.timesPicked, m.lastPicked)}${m.servings ? ` · serves ${m.servings}` : ""}`}
-                meta={m.preview.length ? m.preview.join(", ") + (m.ingredientCount > m.preview.length ? `, +${m.ingredientCount - m.preview.length}` : "") : "No ingredients yet"}
+                photo={photoFor(photos, m.title)?.url ?? null}
+                meta={`${madeLine(m.timesPicked, m.lastPicked)}${m.servings ? ` · serves ${m.servings}` : ""}`}
               />
             </li>
           ))}
@@ -66,10 +78,10 @@ export function RecipesPage() {
       ) : (
         <div class="mt-12 max-w-[30rem]">
           {needle ? (
-            <p class="font-display text-[26px] font-medium leading-tight">No recipes match.</p>
+            <p class="font-display text-[26px] font-bold leading-tight">No recipes match.</p>
           ) : (
             <>
-              <p class="font-display text-[26px] font-medium leading-tight">No recipes yet.</p>
+              <p class="font-display text-[26px] font-bold leading-tight">No recipes yet.</p>
               <p class="mt-2 text-[17px] text-ink-muted">Meals you pick for a day show up here, or start one yourself.</p>
               <Link to="/meals/ideas" class={buttonClass("secondary") + " mt-6"}>
                 Browse Fork's ideas
@@ -233,6 +245,8 @@ function IngredientTable({ items }: { items: { amount: string; name: string; pre
 }
 
 export function RecipePage({ slug }: { slug?: string }) {
+  const photos = usePhotos();
+  const [choosing, setChoosing] = useState(false);
   const recipe = api.useQuery("recipe", slug ?? "");
   const remove = api.useMutation("removeMeal");
   const toList = api.useMutation("addRecipeToList");
@@ -265,6 +279,8 @@ export function RecipePage({ slug }: { slug?: string }) {
     <DetailTemplate
       back={{ to: "/meals", text: "Recipes" }}
       title={recipe.title}
+      image={photoFor(photos, recipe.title)?.url ?? null}
+      photoAction={<PhotoButton has={!!photoFor(photos, recipe.title)} onClick={() => setChoosing(true)} />}
       meta={`${madeLine(recipe.timesPicked, recipe.lastPicked)}${recipe.servings ? ` · serves ${recipe.servings}` : ""}`}
       actions={
         <>
@@ -289,6 +305,7 @@ export function RecipePage({ slug }: { slug?: string }) {
     >
     <div class="flex flex-col gap-6">
       <Notice text={note} />
+      {choosing ? <PhotoPicker title={recipe.title} current={photoFor(photos, recipe.title)} onClose={() => setChoosing(false)} /> : null}
       {mode === "plan" ? (
         <SuggestOnDay
           title={recipe.title}
@@ -341,6 +358,7 @@ export function RecipePage({ slug }: { slug?: string }) {
 const TAGS = [...new Set(RECIPES.flatMap((x) => x.tags))].sort();
 
 export function IdeasPage() {
+  const photos = usePhotos();
   const meals = api.useQuery("meals");
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string | null>(null);
@@ -354,12 +372,12 @@ export function IdeasPage() {
       <div class="max-w-[640px]">
         <SearchField value={q} onInput={setQ} placeholder="Search Fork's ideas" />
       </div>
-      <div class="mt-4 flex flex-wrap gap-2">
+      <div class="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
         {TAGS.map((t) => (
           <button
             key={t}
             aria-pressed={tag === t}
-            class={`h-9 rounded-full border px-3.5 text-[15px] font-medium ${tag === t ? "border-ink bg-ink text-canvas" : "border-line text-ink-muted hover:text-ink"}`}
+            class={`h-9 shrink-0 rounded-full border px-3.5 text-[15px] font-medium ${tag === t ? "border-ink bg-ink text-canvas" : "border-line text-ink-muted hover:text-ink"}`}
             onClick={() => setTag(tag === t ? null : t)}
           >
             {t}
@@ -372,18 +390,21 @@ export function IdeasPage() {
             <MealTile
               to={`/idea/${slugOf(mealKey(x.title))}`}
               title={x.title}
+              photo={photoFor(photos, x.title)?.url ?? null}
               tag={mine.has(mealKey(x.title)) ? "Saved" : undefined}
-              eyebrow={`${x.tags.slice(0, 2).join(" · ")} · ${x.ingredients.length} ingredients`}
+              meta={x.tags.slice(0, 2).join(" · ")}
             />
           </li>
         ))}
       </ul>
-      {!shown.length ? <p class="mt-12 font-display text-[26px] font-medium">No ideas match.</p> : null}
+      {!shown.length ? <p class="mt-12 font-display text-[26px] font-bold">No ideas match.</p> : null}
     </div>
   );
 }
 
 export function IdeaPage({ slug }: { slug?: string }) {
+  const photos = usePhotos();
+  const [choosing, setChoosing] = useState(false);
   const save = api.useMutation("saveRecipe");
   const meals = api.useQuery("meals");
   const [plan, setPlan] = useState(false);
@@ -402,6 +423,8 @@ export function IdeaPage({ slug }: { slug?: string }) {
     <DetailTemplate
       back={{ to: "/meals/ideas", text: "Ideas" }}
       title={idea.title}
+      image={photoFor(photos, idea.title)?.url ?? null}
+      photoAction={<PhotoButton has={!!photoFor(photos, idea.title)} onClick={() => setChoosing(true)} />}
       meta={`An idea from Fork · ${idea.tags.join(" · ")} · serves about 4`}
       actions={
         <>
@@ -429,6 +452,7 @@ export function IdeaPage({ slug }: { slug?: string }) {
     >
     <div class="flex flex-col gap-6">
       <Notice text={note} />
+      {choosing ? <PhotoPicker title={idea.title} current={photoFor(photos, idea.title)} onClose={() => setChoosing(false)} /> : null}
       {plan ? (
         <SuggestOnDay
           title={idea.title}

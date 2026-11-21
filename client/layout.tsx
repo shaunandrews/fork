@@ -20,9 +20,9 @@ export const narrow = "w-full max-w-[440px]";
 
 // ---------- type ----------
 
-export const displayXl = "font-display text-[clamp(2.75rem,8vw,5.5rem)] font-medium leading-[0.98] tracking-[-0.025em]";
-export const displayLg = "font-display text-[clamp(2.125rem,4.5vw,2.75rem)] font-medium leading-[1.05] tracking-[-0.02em]";
-export const displayMd = "font-display text-[clamp(1.625rem,3vw,2rem)] font-medium leading-[1.1] tracking-[-0.015em]";
+export const displayXl = "font-display text-[clamp(2.5rem,7vw,4.75rem)] font-bold leading-[1] tracking-[-0.04em]";
+export const displayLg = "font-display text-[clamp(2rem,4vw,2.5rem)] font-bold leading-[1.05] tracking-[-0.035em]";
+export const displayMd = "font-display text-[clamp(1.375rem,2.5vw,1.75rem)] font-bold leading-[1.15] tracking-[-0.03em]";
 export const caption = "text-[13px] font-medium text-ink-muted";
 
 // ---------- small helpers ----------
@@ -36,7 +36,7 @@ export function usePageTitle(title?: string) {
 
 export function Brand() {
   return (
-    <Link to="/" class="font-display text-[28px] font-medium leading-none tracking-[-0.02em] text-ink" data-component="Brand">
+    <Link to="/" class="font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-ink" data-component="Brand">
       Fork
     </Link>
   );
@@ -68,21 +68,32 @@ export function BackLink({ to, text }: { to: string; text: string }) {
 
 export const photo = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=75`;
 const photoSet = (id: string, widths: number[]) => widths.map((w) => `${photo(id, w)} ${w}w`).join(", ");
+/** An Unsplash id from the landing page, or a full address (a family's photo, a search pick). */
+const isUrl = (id: string) => /^(https?:)?\/\//.test(id) || id.startsWith("/");
 
-/** A meal photo, or a type tile when there isn't one (DESIGN.md → Imagery). */
-export function MealImage({ id, title, sizes, widths, class: cls, eager }: { id: string | null; title: string; sizes: string; widths: number[]; class: string; eager?: boolean }) {
+// Warm food-ish tints for meals without a photo, picked by name so a meal keeps its colour.
+const TINTS = ["bg-[#f3e2cf] text-[#5a3a1c]", "bg-[#e5ecd9] text-[#33421f]", "bg-[#f4d9d2] text-[#5e2a1f]", "bg-[#e9e1f0] text-[#3d2c52]", "bg-[#f6ead0] text-[#574413]", "bg-[#dcebe8] text-[#1f4540]"];
+export function tintFor(title: string) {
+  let h = 0;
+  for (const c of title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TINTS[h % TINTS.length];
+}
+
+/** A meal photo, or a tinted tile with the meal's name when there isn't one (DESIGN.md → Imagery). */
+export function MealImage({ id, title, sizes, widths, class: cls, eager, showTitle = true }: { id: string | null; title: string; sizes: string; widths: number[]; class: string; eager?: boolean; showTitle?: boolean }) {
   if (!id) {
     return (
-      <div class={`${cls} flex items-end bg-surface-strong p-5`} data-component="MealImage">
-        <span class="font-display text-[26px] font-medium leading-[1.1] tracking-[-0.01em] text-ink md:text-[32px]">{title}</span>
+      <div class={`${cls} flex items-end p-5 ${tintFor(title)}`} data-component="MealImage">
+        {showTitle ? <span class="text-[22px] font-bold leading-[1.1] tracking-[-0.03em] md:text-[26px]">{title}</span> : null}
       </div>
     );
   }
+  const url = isUrl(id);
   return (
     <img
-      src={photo(id, widths[widths.length - 1])}
-      srcSet={photoSet(id, widths)}
-      sizes={sizes}
+      src={url ? id : photo(id, widths[widths.length - 1])}
+      srcSet={url ? undefined : photoSet(id, widths)}
+      sizes={url ? undefined : sizes}
       alt={title}
       loading={eager ? "eager" : "lazy"}
       fetchPriority={eager ? "high" : undefined}
@@ -307,6 +318,7 @@ export function DetailTemplate({
   title,
   meta,
   image,
+  photoAction,
   actions,
   children,
 }: {
@@ -314,34 +326,44 @@ export function DetailTemplate({
   title: string;
   meta?: any;
   image?: string | null;
+  /** A button over the photo, like "Add photo". */
+  photoAction?: any;
   actions?: any;
   children: any;
 }) {
   usePageTitle(title);
   return (
     <article data-component="DetailTemplate">
-      <div class={container}>
-        <div class={`${flow} pt-6 md:pt-10`}>
-          <BackLink to={back.to} text={back.text} />
-        </div>
-      </div>
-      {image ? (
-        <div class="mt-4 md:px-8">
+      <div class="relative md:mx-auto md:mt-6 md:max-w-[1136px] md:px-8">
+        <div class="relative overflow-hidden md:rounded-3xl">
           <MealImage
-            id={image}
+            id={image ?? null}
             title={title}
+            showTitle={false}
             sizes="(min-width: 1200px) 1136px, 100vw"
             widths={[640, 960, 1400]}
-            class="mx-auto aspect-[4/5] w-full max-w-[1136px] sm:aspect-[16/9] md:rounded-[20px]"
+            class={`w-full ${image ? "aspect-[4/5] sm:aspect-[16/9]" : "aspect-[4/3] sm:aspect-[21/9]"}`}
             eager
           />
+          {image ? <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" /> : null}
+          <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
+            <Link to={back.to} class="inline-flex h-10 items-center gap-1 rounded-full bg-black/25 pl-3 pr-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35" data-component="BackLink">
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {back.text}
+            </Link>
+            {photoAction}
+          </div>
+          <div class={`absolute inset-x-0 bottom-0 p-5 md:p-8 ${image ? "text-white" : ""}`}>
+            <h1 class="text-[clamp(2.25rem,8vw,3.75rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
+            {meta ? <p class={`mt-2 text-[15px] ${image ? "text-white/85" : "opacity-75"}`}>{meta}</p> : null}
+          </div>
         </div>
-      ) : null}
+      </div>
       <div class={container}>
-        <div class={`${flow} ${image ? "mt-8" : "mt-6"}`}>
-          <h1 class={displayLg}>{title}</h1>
-          {meta ? <p class="mt-2 text-[15px] text-ink-muted">{meta}</p> : null}
-          {actions ? <div class="mt-6 flex flex-wrap items-center gap-3">{actions}</div> : null}
+        <div class={`${flow} mt-6`}>
+          {actions ? <div class="flex flex-wrap items-center gap-3">{actions}</div> : null}
           <div class="mt-10">{children}</div>
         </div>
       </div>

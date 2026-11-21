@@ -51,7 +51,9 @@ export const FLOWS: Flow[] = [
     description: "Maya picks pizza instead, then checks the shopping list.",
     steps: [
       { go: "/", shot: "The week" },
-      { click: { role: "button", name: "Pick", exact: true, nth: 0 }, shot: "Picked pizza" },
+      { click: { role: "button", name: "Open tonight", exact: false, nth: 0 }, shot: "Tonight's ideas" },
+      { click: { role: "button", name: "Homemade pizza night", exact: false, nth: 0 }, shot: "Pizza opened" },
+      { click: { role: "button", name: "Pick for tonight", exact: true, nth: 0 }, shot: "Picked pizza" },
       { go: "/list", shot: "List updated" },
       { click: { css: "[data-component=ListRow] button", nth: 0 }, shot: "Ticked an item" },
     ],

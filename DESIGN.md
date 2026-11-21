@@ -33,19 +33,19 @@ colors:
 
 typography:
   display-xl:
-    fontFamily: "'Newsreader', 'Iowan Old Style', Georgia, serif"
+    fontFamily: "'Geist', -apple-system, system-ui, sans-serif"
     fontSize: 64px
     fontWeight: 500
     lineHeight: 1.0
     letterSpacing: -1.6px
   display-lg:
-    fontFamily: "'Newsreader', 'Iowan Old Style', Georgia, serif"
+    fontFamily: "'Geist', -apple-system, system-ui, sans-serif"
     fontSize: 44px
     fontWeight: 500
     lineHeight: 1.05
     letterSpacing: -0.9px
   display-md:
-    fontFamily: "'Newsreader', 'Iowan Old Style', Georgia, serif"
+    fontFamily: "'Geist', -apple-system, system-ui, sans-serif"
     fontSize: 32px
     fontWeight: 500
     lineHeight: 1.1
@@ -195,7 +195,7 @@ Fork is a dinner planner for one household. People open it on a phone, usually i
 The page is built from three things only: **photography**, **type**, and **whitespace**. Everything else (borders, fills, color) is used at the minimum needed to make a control legible.
 
 - **Photos lead.** Every meal is shown as an image first. On a phone, tonight's meal is a full-bleed 4:5 photo with its name set large below it.
-- **Type is the second voice.** Meal names and day headings use Newsreader, an editorial serif with optical sizes, set big and tight. Everything functional (buttons, lists, amounts) uses Geist, a quiet grotesque.
+- **Type is the second voice.** One family, Geist, everywhere. Meal names and headings are set bold (700) and tight (about -0.04em), big enough to sit over a photo. Everything functional (buttons, lists, amounts) is Geist at regular or medium weight.
 - **Chrome is nearly colorless.** White or near-black canvas, ink text, hairline rules. Primary actions are solid ink pills, not a brand color.
 - **One accent, used for state.** Basil green marks what is live or decided: tonight's pick, your vote, a ticked shopping item. If green appears, it means something.
 - **Cardless by default.** Sections are separated by space and a hairline, not boxes. A meal card is just a photo with a title underneath — no border, no shadow, no fill.
@@ -226,7 +226,7 @@ Dark mode swaps every token via `prefers-color-scheme`; surfaces are tonal near-
 ## Typography
 
 ### Families
-- **Newsreader** (Google Fonts, variable, optical size 6–72) for display: meal names, day headings, the landing hero. Use weight 500, upright. No italics by default.
+- **Geist** (Google Fonts, variable, 400–800) for everything. Headings 700 with tight tracking; no serif.
 - **Geist** (Google Fonts, variable) for everything functional: buttons, labels, body, ingredient amounts, the shopping list.
 
 ### Scale
@@ -256,7 +256,8 @@ Photography is the brand. Treat it with care.
 - **Edges:** on phones the hero runs full-bleed (no radius, no side margin). Everywhere else images take `{rounded.md}`; thumbnails `{rounded.sm}`.
 - **Style:** natural light, real home-cooked plates, overhead or 45°. No hands-in-frame stock clichés, no heavy props, no filters.
 - **Text on images:** avoid it. Put the meal name under the photo. If text must overlay (landing hero), use a bottom scrim gradient to 55%.
-- **No photo yet:** show a **type tile** — the meal name set in `display-md` Newsreader on `{colors.surface-strong}`, same ratio as the photo it replaces. Never an emoji, icon, or generic placeholder graphic.
+- **Photos:** every meal can have one, per family: taken or uploaded on the phone, or picked from image search (Wikimedia Commons and Openverse), then copied into Fork's storage. Tonight's meal fills the top of the Week screen edge to edge with its name over it; recipe and idea pages open on the photo the same way; lists use 64px rounded thumbnails.
+- **No photo yet:** a tinted tile in one of six warm food tones (picked by the meal's name, so it keeps its colour) with the name set bold. Always offer "Add photo" beside it.
 - **Loading:** `{colors.surface-strong}` block at the final ratio, then fade the image in (150ms, opacity only).
 
 ## Layout

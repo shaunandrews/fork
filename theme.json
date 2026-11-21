@@ -21,7 +21,7 @@
     "typography": {
       "fontFamilies": [
         { "slug": "sans", "name": "Geist", "fontFamily": "'Geist', -apple-system, system-ui, sans-serif" },
-        { "slug": "display", "name": "Newsreader", "fontFamily": "'Newsreader', 'Iowan Old Style', Georgia, serif" }
+        { "slug": "display", "name": "Geist", "fontFamily": "'Geist', -apple-system, system-ui, sans-serif" }
       ]
     }
   }

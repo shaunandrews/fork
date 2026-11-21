@@ -33,7 +33,7 @@ import { Textarea as UITextarea } from "./components/ui/textarea";
 import { Toggle } from "./components/ui/toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
-import { MealImage, caption, displayMd } from "./layout";
+import { MealImage, caption, displayMd, tintFor } from "./layout";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -165,10 +165,11 @@ export function CheckCircle({ checked }: { checked: boolean }) {
 }
 
 /** 56px meal thumbnail: the photo, or the meal's initial on a tile. */
-export function Thumb({ title, photo }: { title: string; photo?: string | null }) {
-  if (photo) return <MealImage id={photo} title={title} sizes="56px" widths={[112]} class="h-14 w-14 shrink-0 rounded-[8px]" />;
+export function Thumb({ title, photo, size = "md" }: { title: string; photo?: string | null; size?: "md" | "lg" }) {
+  const box = size === "lg" ? "h-16 w-16 rounded-2xl text-[24px]" : "h-14 w-14 rounded-xl text-[22px]";
+  if (photo) return <MealImage id={photo} title={title} sizes="64px" widths={[128]} class={`${box} shrink-0`} />;
   return (
-    <span data-component="Thumb" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[8px] bg-surface-strong font-display text-[22px] font-medium text-ink" aria-hidden="true">
+    <span data-component="Thumb" class={`flex shrink-0 items-center justify-center font-bold ${box} ${tintFor(title)}`} aria-hidden="true">
       {title.trim()[0]?.toUpperCase() ?? "?"}
     </span>
   );
@@ -184,6 +185,7 @@ const ICONS: Record<string, string> = {
   chevronDown: "M5.5 9.5 12 16l6.5-6.5",
   plus: "M12 5v14M5 12h14",
   close: "M6.5 6.5l11 11M17.5 6.5l-11 11",
+  camera: "M4 8.5a1.5 1.5 0 0 1 1.5-1.5h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5ZM12 16a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z",
   check: "M5 12.5 10 17l9-10",
   search: "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 20 20",
   chef: "M7 14.5v5h10v-5M7 14.5a4 4 0 0 1-.5-7.9 5.5 5.5 0 0 1 11 0 4 4 0 0 1-.5 7.9ZM7 17h10",
@@ -299,7 +301,7 @@ export function SuggestionRow({
   return (
     <li class="border-b border-line" data-component="SuggestionRow">
       <div class="flex items-center gap-3 py-3 md:gap-4">
-        <Thumb title={title} />
+        <Thumb title={title} photo={photo} />
         <button class={cx("min-w-0 flex-1 text-left", focus, "rounded-[4px]")} onClick={onOpen} aria-expanded={onOpen ? !!open : undefined} disabled={!onOpen}>
           <span class="flex items-center gap-2">
             <span class="truncate text-[17px] font-medium">{title}</span>
@@ -364,7 +366,7 @@ export function EmptyState({ title, body, action }: { title: string; body?: stri
   return (
     <Empty data-component="EmptyState" className="items-start p-0 py-6 text-left md:p-0 md:py-6">
       <EmptyHeader className="max-w-[30rem] items-start text-left">
-        <EmptyTitle className="font-display text-[26px] font-medium leading-tight tracking-normal">{title}</EmptyTitle>
+        <EmptyTitle className="font-display text-[26px] font-bold leading-tight tracking-normal">{title}</EmptyTitle>
         {body ? <EmptyDescription className="text-[17px] leading-relaxed text-ink-muted">{body}</EmptyDescription> : null}
       </EmptyHeader>
       {action ? <EmptyContent className="items-start">{action}</EmptyContent> : null}
@@ -392,7 +394,9 @@ export function DayPlan({
   chefAction,
   children,
   footer,
+  bare,
 }: {
+  bare?: boolean;
   day: string;
   date: string;
   isToday?: boolean;
@@ -402,10 +406,10 @@ export function DayPlan({
   footer?: any;
 }) {
   return (
-    <section class="border-t border-line pt-6" data-component="DayPlan">
+    <section class={bare ? "" : "border-t border-line pt-6"} data-component="DayPlan">
       <header class="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div>
-          <h2 class="font-display text-[26px] font-medium leading-none tracking-[-0.01em] md:text-[32px]">
+          <h2 hidden={bare} class="font-display text-[26px] font-bold leading-none tracking-[-0.01em] md:text-[32px]">
             {day} <span class="text-ink-muted">{date}</span>
           </h2>
           <p class={cx("mt-2 text-[15px]", chef ? "text-ink" : "text-ink-muted")}>
@@ -480,7 +484,7 @@ export function Sheet({
 }) {
   const desktop = useDesktop();
   const onOpenChange = (next: boolean) => !next && onClose();
-  const heading = "font-display text-[26px] font-medium leading-tight tracking-[-0.01em] text-ink";
+  const heading = "font-display text-[26px] font-bold leading-tight tracking-[-0.01em] text-ink";
   const sub = "text-[15px] text-ink-muted";
   // A tag name, not a component made here, so typing never remounts the fields.
   const Body: any = onSubmit ? "form" : "div";
@@ -537,7 +541,7 @@ export function Confirm({
     <AlertDialog open onOpenChange={(next: boolean) => !next && onClose()}>
       <AlertDialogContent data-component="Confirm" className="max-w-[calc(100%-2rem)] gap-5 rounded-[20px] bg-canvas p-6 sm:max-w-[420px]">
         <AlertDialogHeader className="place-items-start text-left">
-          <AlertDialogTitle className="font-display text-[24px] font-medium leading-tight">{title}</AlertDialogTitle>
+          <AlertDialogTitle className="font-display text-[24px] font-bold leading-tight">{title}</AlertDialogTitle>
           {body ? <AlertDialogDescription className="text-[15px] text-ink-muted">{body}</AlertDialogDescription> : null}
         </AlertDialogHeader>
         <AlertDialogFooter className="m-0 grid grid-cols-2 gap-2 border-0 bg-transparent p-0 sm:flex">
