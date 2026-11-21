@@ -380,7 +380,7 @@ Every component comes from [shadcn/ui](https://ui.shadcn.com) (Base UI underneat
 
 - Fork runs on Spacefast Zero, which ships Tailwind v4 with semantic tokens: `canvas`, `surface`, `ink`, `ink-muted`, `line`, `accent`, `accent-foreground`, `danger`. Color names above match those on purpose.
 - **Tokens live in `theme.json`** at the project root (WordPress theme.json v3). Zero turns each palette slug into a Tailwind color (`bg-canvas`, `text-ink-muted`, `bg-action`…) and each font family slug into a font utility (`font-sans`, `font-display`). Every color is `light-dark(light, dark)`, so light and dark mode follow the system with no extra classes.
-- **Fonts** load from Google Fonts (`Newsreader:opsz,wght@6..72,400..600`, `Geist:wght@400..600`). Zero has no stylesheet hook, so `client/index.tsx` adds the `<link>` once at startup.
+- **Fonts** load from Google Fonts (`Geist:wght@400..800`). Zero has no stylesheet hook, so `client/index.tsx` adds the `<link>` once at startup.
 - Zero rejects custom CSS, `@plugin` and `@config`; `theme.json` plus utility classes are the whole styling surface.
 
 ## Known Gaps
