@@ -246,3 +246,18 @@ export function PhotoPicker({ title, current, onClose }: { title: string; curren
     </Sheet>
   );
 }
+
+/** "Add photo" / "Photo" over a meal's photo hero. Opens the picker. */
+export function PhotoButton({ has, onClick }: { has: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      class="inline-flex h-10 items-center gap-1.5 rounded-full bg-black/25 px-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      data-component="PhotoButton"
+    >
+      <Icon name="camera" size={18} />
+      {has ? "Photo" : "Add photo"}
+    </button>
+  );
+}

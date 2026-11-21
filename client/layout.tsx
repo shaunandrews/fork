@@ -334,32 +334,8 @@ export function DetailTemplate({
   usePageTitle(title);
   return (
     <article data-component="DetailTemplate">
-      <div class="relative md:mx-auto md:mt-6 md:max-w-[1136px] md:px-8">
-        <div class="relative overflow-hidden md:rounded-3xl">
-          <MealImage
-            id={image ?? null}
-            title={title}
-            showTitle={false}
-            sizes="(min-width: 1200px) 1136px, 100vw"
-            widths={[640, 960, 1400]}
-            class={`w-full ${image ? "aspect-[4/5] sm:aspect-[16/9]" : "aspect-[4/3] sm:aspect-[21/9]"}`}
-            eager
-          />
-          {image ? <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" /> : null}
-          <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
-            <Link to={back.to} class="inline-flex h-10 items-center gap-1 rounded-full bg-black/25 pl-3 pr-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35" data-component="BackLink">
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-              {back.text}
-            </Link>
-            {photoAction}
-          </div>
-          <div class={`absolute inset-x-0 bottom-0 p-5 md:p-8 ${image ? "text-white" : ""}`}>
-            <h1 class="text-[clamp(2.25rem,8vw,3.75rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
-            {meta ? <p class={`mt-2 text-[15px] ${image ? "text-white/85" : "opacity-75"}`}>{meta}</p> : null}
-          </div>
-        </div>
+      <div class="md:mx-auto md:mt-6 md:max-w-[1136px] md:px-8">
+        <PhotoHero image={image ?? null} title={title} meta={meta} topLeft={<BackPill to={back.to} text={back.text} />} topRight={photoAction} />
       </div>
       <div class={container}>
         <div class={`${flow} mt-6`}>
@@ -368,5 +344,73 @@ export function DetailTemplate({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * A meal's photo, edge to edge on phones, with its name over it. Used by the Week's Tonight
+ * card and by recipe and idea pages. No photo: the meal's tint, with the name in ink.
+ */
+export function PhotoHero({
+  image,
+  title,
+  eyebrow,
+  meta,
+  topLeft,
+  topRight,
+  actions,
+  onOpen,
+  openLabel,
+  tall,
+}: {
+  image: string | null;
+  title: string;
+  eyebrow?: string;
+  meta?: any;
+  topLeft?: any;
+  topRight?: any;
+  actions?: any;
+  onOpen?: () => void;
+  openLabel?: string;
+  /** 4:5 on phones even without a photo (the Tonight card). */
+  tall?: boolean;
+}) {
+  const shape = image || tall ? "aspect-[4/5] sm:aspect-[16/9]" : "aspect-[4/3] sm:aspect-[21/9]";
+  const pic = <MealImage id={image} title={title} showTitle={false} eager sizes="(min-width: 1200px) 1136px, 100vw" widths={[800, 1280, 1600]} class={`w-full ${shape}`} />;
+  return (
+    <section class="relative overflow-hidden md:rounded-3xl" data-component="PhotoHero">
+      {onOpen ? (
+        <button type="button" class="block w-full" onClick={onOpen} aria-label={openLabel ?? title}>
+          {pic}
+        </button>
+      ) : (
+        pic
+      )}
+      {image ? <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/25" /> : null}
+      {topLeft || topRight ? (
+        <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
+          <span>{topLeft}</span>
+          <span>{topRight}</span>
+        </div>
+      ) : null}
+      <div class={`pointer-events-none absolute inset-x-0 bottom-0 p-5 md:p-8 ${image ? "text-white" : "text-ink"}`}>
+        {eyebrow ? <p class={`text-[13px] font-semibold uppercase tracking-[0.08em] ${image ? "text-white/80" : "opacity-70"}`}>{eyebrow}</p> : null}
+        <h1 class="mt-1 text-[clamp(2.25rem,8vw,3.75rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
+        {meta ? <p class={`mt-2 text-[15px] ${image ? "text-white/85" : "opacity-75"}`}>{meta}</p> : null}
+        {actions ? <div class="pointer-events-auto mt-5 flex flex-wrap gap-2">{actions}</div> : null}
+      </div>
+    </section>
+  );
+}
+
+/** Back link that sits over a photo. */
+export function BackPill({ to, text }: { to: string; text: string }) {
+  return (
+    <Link to={to} class="inline-flex h-10 items-center gap-1 rounded-full bg-black/25 pl-3 pr-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35" data-component="BackPill">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      {text}
+    </Link>
   );
 }

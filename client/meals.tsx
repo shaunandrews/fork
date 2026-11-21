@@ -4,22 +4,13 @@
 import { useState } from "preact/hooks";
 import { Link, navigate, useLocation } from "@spacefast/zero/client";
 import { api, card, ErrorLine, Loading, SuggestOnDay, useRunner } from "./index";
-import { AISLES, formatAmount, parseIngredient } from "../shared/ingredients";
+import { AISLES, lineText, parseLine } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
-import { PhotoPicker, photoFor, usePhotos } from "./photos";
+import { PhotoButton, PhotoPicker, photoFor, usePhotos } from "./photos";
 
-/** "Add photo" / "Photo" over a meal's hero. */
-function PhotoButton({ has, onClick }: { has: boolean; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} class="inline-flex h-10 items-center gap-1.5 rounded-full bg-black/25 px-4 text-[15px] font-medium text-white backdrop-blur-md hover:bg-black/35">
-      <Icon name="camera" size={18} />
-      {has ? "Photo" : "Add photo"}
-    </button>
-  );
-}
 import { dayName, shortDate } from "../shared/dates";
 import { AppPage, DetailTemplate, cardGrid, displayMd } from "./layout";
-import { AisleGroup, Button, Confirm, EmptyState, Field, Icon, Input, MealTile, SearchField, Select, Sheet, Tag, Textarea, buttonClass, sheetAction } from "./ui";
+import { AisleGroup, Button, Chip, Confirm, IngredientEntry, IngredientList, Row, EmptyState, Field, Icon, Input, MealTile, SearchField, Select, Sheet, Tag, Textarea, buttonClass, sheetAction } from "./ui";
 
 const mealKey = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
 const slugOf = (key: string) => key.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "meal";
@@ -85,22 +76,18 @@ export function RecipesPage() {
           ))}
         </ul>
       ) : (
-        <div class="mt-12 max-w-[30rem]">
+        <div class="mt-8">
           {needle ? (
-            <>
-              <p class="font-display text-[26px] font-bold leading-tight">No “{q.trim()}” yet.</p>
-              <Link to={`/meals/new?title=${encodeURIComponent(q.trim())}`} class={buttonClass("primary") + " mt-4"}>
-                Add “{q.trim()}” <kbd class="ml-2 hidden rounded border border-white/30 px-1.5 text-[12px] md:inline">Return</kbd>
-              </Link>
-            </>
+            <EmptyState
+              title={`No “${q.trim()}” yet.`}
+              action={
+                <Button to={`/meals/new?title=${encodeURIComponent(q.trim())}`}>
+                  Add “{q.trim()}” <kbd class="ml-1 hidden rounded border border-current/30 px-1.5 text-[12px] opacity-70 md:inline">Return</kbd>
+                </Button>
+              }
+            />
           ) : (
-            <>
-              <p class="font-display text-[26px] font-bold leading-tight">No recipes yet.</p>
-              <p class="mt-2 text-[17px] text-ink-muted">Meals you pick for a day show up here, or start one yourself.</p>
-              <Link to="/meals/ideas" class={buttonClass("secondary") + " mt-6"}>
-                Browse Fork's ideas
-              </Link>
-            </>
+            <EmptyState title="No recipes yet." body="Meals you pick for a day show up here, or start one yourself." action={<Button variant="secondary" to="/meals/ideas">Browse Fork's ideas</Button>} />
           )}
         </div>
       )}
@@ -113,109 +100,13 @@ export function RecipesPage() {
 type Row = { amount: string; name: string; prep: string };
 type Draft = { title: string; servings: string; notes: string; rows: Row[] };
 
-const rowText = (r: Row) => [r.amount, r.name].filter(Boolean).join(" ") + (r.prep ? `, ${r.prep}` : "");
-
-/**
- * Type "2 lb chicken thighs, diced" and press Return: it's added and the box is ready for the
- * next one. Backspace in an empty box takes the last one back to edit; ↑ does the same. Tap a
- * row to edit it. Nothing else sits in the tab order, so Tab goes straight on to the next field.
- */
-function IngredientEntry({ rows, known, onChange, onPaste }: { rows: Row[]; known: string[]; onChange: (rows: Row[]) => void; onPaste: () => void }) {
-  const [text, setText] = useState("");
-  const add = () => {
-    const lines = text.split(/\n|;/).map((l) => l.trim()).filter(Boolean);
-    const parsed = lines.map(splitLine).filter((x): x is Row => x !== null);
-    if (!parsed.length) return;
-    onChange([...rows, ...parsed]);
-    setText("");
-  };
-  const takeBack = (i: number) => {
-    if (text.trim()) add();
-    setText(rowText(rows[i]));
-    onChange(rows.filter((_, j) => j !== i));
-  };
-  return (
-    <section data-component="IngredientEntry">
-      <label for="ingredient-entry" class="mb-2 block text-[15px] font-medium text-ink">
-        Ingredients
-      </label>
-      {rows.length ? (
-        <ul class="mb-2 border-t border-line">
-          {rows.map((row, i) => (
-            <li key={i} class="flex items-center border-b border-line">
-              <button type="button" tabIndex={-1} class="flex min-h-[48px] min-w-0 flex-1 items-baseline gap-3 py-2 text-left" onClick={() => takeBack(i)} title="Edit">
-                <span class="w-16 shrink-0 text-[15px] tabular-nums text-ink-muted">{row.amount}</span>
-                <span class="min-w-0 truncate text-[17px]">
-                  {row.name}
-                  {row.prep ? <span class="text-ink-muted">, {row.prep}</span> : null}
-                </span>
-              </button>
-              <button type="button" tabIndex={-1} class="flex h-11 w-10 shrink-0 items-center justify-center text-ink-muted hover:text-ink" aria-label={`Remove ${row.name}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
-                <Icon name="close" size={16} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <Input
-        id="ingredient-entry"
-        class="[&::-webkit-calendar-picker-indicator]:hidden"
-        list="fork-ingredients"
-        autoComplete="off"
-        enterKeyHint="enter"
-        placeholder={rows.length ? "Add another" : "2 lb chicken thighs, diced"}
-        value={text}
-        onInput={(e: any) => setText(e.target.value)}
-        onPaste={(e: any) => {
-          const t = e.clipboardData?.getData("text") ?? "";
-          if (t.includes("\n")) {
-            e.preventDefault();
-            const parsed = t.split("\n").map((l: string) => splitLine(l.trim())).filter((x: Row | null): x is Row => x !== null);
-            onChange([...rows, ...parsed]);
-          }
-        }}
-        onKeyDown={(e: any) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            add();
-          } else if ((e.key === "Backspace" && !text) || (e.key === "ArrowUp" && !text)) {
-            if (rows.length) {
-              e.preventDefault();
-              takeBack(rows.length - 1);
-            }
-          }
-        }}
-      />
-      <datalist id="fork-ingredients">
-        {known.map((k) => (
-          <option key={k} value={k} />
-        ))}
-      </datalist>
-      <p class="mt-2 text-[13px] text-ink-muted">
-        Return adds it. Paste a whole list at once, or{" "}
-        <button type="button" tabIndex={-1} class="underline decoration-line underline-offset-4 hover:text-ink" onClick={onPaste}>
-          paste it here
-        </button>
-        .
-      </p>
-    </section>
-  );
-}
-
-function splitLine(line: string): Row | null {
-  const [head, ...rest] = line.split(",");
-  const it = parseIngredient(head);
-  if (!it) return null;
-  return { amount: formatAmount(it.qty, it.unit), name: it.name, prep: rest.join(",").trim() };
-}
+const splitLine = (line: string): Row | null => parseLine(line);
 
 function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft; originalKey: string; onSaved: (slug: string) => void; onCancel: () => void }) {
   const save = api.useMutation("saveRecipe");
   const known = api.useQuery("ingredients");
   const [d, setD] = useState<Draft>(start);
-  const [paste, setPaste] = useState<string | null>(null);
   const r = useRunner();
-  const setRow = (i: number, patch: Partial<Row>) => setD({ ...d, rows: d.rows.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const val = (e: Event) => (e.target as HTMLInputElement).value;
   // Return in Name or Serves moves on, instead of saving a half-written recipe.
   const nextOnEnter = (e: KeyboardEvent) => {
@@ -245,41 +136,10 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
       </div>
 
       <IngredientEntry
-        rows={d.rows.filter((x) => x.name.trim())}
+        lines={d.rows.filter((x) => x.name.trim()).map(lineText)}
         known={(known ?? []).map((k) => k.name)}
-        onChange={(rows) => setD({ ...d, rows })}
-        onPaste={() => setPaste("")}
+        onChange={(lines) => setD({ ...d, rows: lines.map((l) => parseLine(l)).filter((x): x is Row => x !== null) })}
       />
-
-      {paste !== null ? (
-        <Sheet
-          title="Paste a list"
-          onClose={() => setPaste(null)}
-          actions={
-            <>
-              <Button type="button" variant="secondary" class={sheetAction} onClick={() => setPaste(null)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                class={sheetAction}
-                disabled={!paste.trim()}
-                onClick={() => {
-                  const added = paste.split("\n").map(splitLine).filter((x): x is Row => x !== null);
-                  setD({ ...d, rows: [...d.rows.filter((x) => x.name.trim()), ...added] });
-                  setPaste(null);
-                }}
-              >
-                Add these
-              </Button>
-            </>
-          }
-        >
-          <Field label="Ingredients" hint="One per line, like “2 lb chicken thighs” or “1 onion, diced”.">
-            <Textarea autoFocus class="min-h-40" placeholder={"2 lb chicken thighs\n1 onion, diced\n3 cloves garlic"} value={paste} onInput={(e: any) => setPaste(e.target.value)} />
-          </Field>
-        </Sheet>
-      ) : null}
 
       <Field label="How to make it">
         <Textarea
@@ -315,22 +175,6 @@ export function NewRecipePage() {
   );
 }
 
-function IngredientTable({ items }: { items: { amount: string; name: string; prep: string }[] }) {
-  if (!items.length) return <p class="text-sm text-ink-muted">No ingredients yet.</p>;
-  return (
-    <ul class="divide-y divide-line">
-      {items.map((it, i) => (
-        <li key={i} class="grid grid-cols-[6rem_1fr] gap-3 py-2 text-sm">
-          <span class="text-right font-medium tabular-nums text-ink">{it.amount || "—"}</span>
-          <span>
-            {it.name}
-            {it.prep ? <span class="text-ink-muted">, {it.prep}</span> : null}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function RecipePage({ slug }: { slug?: string }) {
   const photos = usePhotos();
@@ -408,7 +252,7 @@ export function RecipePage({ slug }: { slug?: string }) {
 
       <section>
         <h2 class={`${displayMd} mb-3`}>Ingredients</h2>
-        <IngredientTable items={recipe.items} />
+        <IngredientList items={recipe.items} />
       </section>
 
       <section>
@@ -462,14 +306,9 @@ export function IdeasPage() {
       </div>
       <div class="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
         {TAGS.map((t) => (
-          <button
-            key={t}
-            aria-pressed={tag === t}
-            class={`h-9 shrink-0 rounded-full border px-3.5 text-[15px] font-medium ${tag === t ? "border-ink bg-ink text-canvas" : "border-line text-ink-muted hover:text-ink"}`}
-            onClick={() => setTag(tag === t ? null : t)}
-          >
+          <Chip key={t} pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>
             {t}
-          </button>
+          </Chip>
         ))}
       </div>
       <ul class={`${cardGrid} mt-8`}>
@@ -485,7 +324,7 @@ export function IdeasPage() {
           </li>
         ))}
       </ul>
-      {!shown.length ? <p class="mt-12 font-display text-[26px] font-bold">No ideas match.</p> : null}
+      {!shown.length ? <EmptyState title="No ideas match." /> : null}
     </div>
   );
 }
@@ -554,7 +393,7 @@ export function IdeaPage({ slug }: { slug?: string }) {
       <ErrorLine text={r.error} />
       <section>
         <h2 class={`${displayMd} mb-3`}>Ingredients</h2>
-        <IngredientTable items={rows} />
+        <IngredientList items={rows} />
       </section>
       <p class="text-[15px] text-ink-muted">Add it to your recipes to change the amounts or write down how you make it.</p>
     </div>
@@ -584,14 +423,13 @@ function IngredientRow({ it, all }: { it: Ing; all: Ing[] }) {
     setInto("");
   };
   return (
-    <li class="border-b border-line">
-      <button class="flex min-h-[52px] w-full items-center gap-3 py-2 text-left" onClick={() => setOpen(true)}>
-        <span class="min-w-0 flex-1 truncate text-[17px]">{it.name}</span>
-        <span class="shrink-0 text-[15px] text-ink-muted">
-          {it.usedIn.length ? `${it.usedIn.length} recipe${it.usedIn.length === 1 ? "" : "s"}` : "Not in a recipe"}
-        </span>
-        <Icon name="chevronRight" size={18} />
-      </button>
+    <Row
+      component="IngredientRow"
+      title={it.name}
+      trailing={it.usedIn.length ? `${it.usedIn.length} recipe${it.usedIn.length === 1 ? "" : "s"}` : "Not in a recipe"}
+      onClick={() => setOpen(true)}
+      chevron
+    >
       {open ? (
         <Sheet
           title={it.name}
@@ -647,8 +485,8 @@ function IngredientRow({ it, all }: { it: Ing; all: Ing[] }) {
                 {it.aliases.map((a) => (
                   <Tag key={a} tone="neutral">
                     {a.replace(/^(can|jar):/, "")}
-                    <button type="button" class="ml-1 text-ink-muted hover:text-ink" aria-label={`Split ${a} back out`} title="Split back out" onClick={() => void r.run(() => split(it.key, a))}>
-                      ✕
+                    <button type="button" class="-mr-1 ml-0.5 text-ink-muted hover:text-ink" aria-label={`Split ${a} back out`} title="Split back out" onClick={() => void r.run(() => split(it.key, a))}>
+                      <Icon name="close" size={12} />
                     </button>
                   </Tag>
                 ))}
@@ -682,7 +520,7 @@ function IngredientRow({ it, all }: { it: Ing; all: Ing[] }) {
           </div>
         </Sheet>
       ) : null}
-    </li>
+    </Row>
   );
 }
 

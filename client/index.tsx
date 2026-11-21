@@ -15,7 +15,8 @@ import {
 } from "@spacefast/zero/client";
 import type app from "../server/index";
 import { addDays, dayName, shortDate, todayLocal } from "../shared/dates";
-import { PhotoPicker, photoFor, usePhotos } from "./photos";
+import { PhotoButton, PhotoPicker, photoFor, usePhotos } from "./photos";
+import { parseLine } from "../shared/ingredients";
 import {
   AppFrame,
   AppPage,
@@ -32,6 +33,7 @@ import {
   grid12,
   flow,
   usePageTitle,
+  PhotoHero,
 } from "./layout";
 
 export const api = createClient<typeof app>();
@@ -134,6 +136,11 @@ import {
   Sheet,
   SuggestionRow,
   Select,
+  Tag,
+  MealTile,
+  IngredientEntry,
+  IngredientList,
+  Row,
   Thumb,
   Icon,
   SectionHeading,
@@ -309,8 +316,8 @@ function Landing({ signedIn }: { signedIn: boolean }) {
                 widths={[480, 800, 1200]}
                 class="aspect-[4/3] w-full rounded-[12px]"
               />
-              <span class="absolute left-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[13px] font-medium text-accent-foreground">
-                Picked
+              <span class="absolute left-4 top-4">
+                <Tag>Picked</Tag>
               </span>
             </div>
             <p class={`mt-5 ${caption}`}>Tonight</p>
@@ -338,34 +345,7 @@ function Landing({ signedIn }: { signedIn: boolean }) {
                 },
                 ...otherIdeas.map((m) => ({ ...m, active: false })),
               ].map((m) => (
-                <li
-                  key={m.title}
-                  class="flex items-center gap-4 border-b border-line py-3"
-                >
-                  {m.photo ? (
-                    <MealImage
-                      id={m.photo}
-                      title={m.title}
-                      sizes="56px"
-                      widths={[112]}
-                      class="h-14 w-14 shrink-0 rounded-[8px]"
-                    />
-                  ) : (
-                    <span
-                      class="flex h-14 w-14 shrink-0 items-center justify-center rounded-[8px] bg-surface-strong font-display text-[22px] font-bold"
-                      aria-hidden="true"
-                    >
-                      {m.title[0]}
-                    </span>
-                  )}
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate text-[17px] font-medium">{m.title}</p>
-                    <p class="text-[15px] text-ink-muted">
-                      Suggested by {m.by}
-                    </p>
-                  </div>
-                  <VoteButton count={m.votes} active={m.active} />
-                </li>
+                <SuggestionRow key={m.title} title={m.title} photo={m.photo} meta={`Suggested by ${m.by}`} votes={m.votes} voted={m.active} />
               ))}
             </ul>
           </div>
@@ -381,23 +361,10 @@ function Landing({ signedIn }: { signedIn: boolean }) {
             dinners you can pick from.
           </p>
         </div>
-        <ul class="mt-10 grid grid-cols-2 gap-x-4 gap-y-8 md:gap-x-6 lg:grid-cols-4">
+        <ul class={`mt-10 ${cardGrid}`}>
           {week.map((d) => (
             <li key={d.day}>
-              <MealImage
-                id={d.photo}
-                title={d.title}
-                sizes="(min-width: 1024px) 270px, 50vw"
-                widths={[400, 600]}
-                class="aspect-[4/3] w-full rounded-[12px]"
-              />
-              <p class={`mt-3 ${caption}`}>{d.day}</p>
-              <p class="mt-0.5 text-[17px] font-semibold leading-snug md:text-[20px]">
-                {d.title}
-              </p>
-              <p class="mt-0.5 text-[15px] text-ink-muted">
-                {d.chef ? `${d.chef} is cooking` : "Needs a chef"}
-              </p>
+              <MealTile title={d.title} photo={d.photo} eyebrow={d.day} meta={d.chef ? `${d.chef} is cooking` : "Needs a chef"} />
             </li>
           ))}
         </ul>
@@ -419,43 +386,11 @@ function Landing({ signedIn }: { signedIn: boolean }) {
             aria-label="Example shopping list"
           >
             {listPreview.map((g) => (
-              <div key={g.aisle} class="mb-6 last:mb-0">
-                <p class={caption}>{g.aisle}</p>
-                <ul class="mt-1">
-                  {g.items.map((it) => (
-                    <li
-                      key={it.name}
-                      class="flex h-[52px] items-center gap-3 border-b border-line"
-                    >
-                      <span
-                        class={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] ${it.done ? "border-accent bg-accent text-accent-foreground" : "border-line"}`}
-                        aria-hidden="true"
-                      >
-                        {it.done && (
-                          <svg width="12" height="12" viewBox="0 0 12 12">
-                            <path
-                              d="M2.5 6.2 5 8.5l4.5-5"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="1.8"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </span>
-                      <span
-                        class={`flex-1 text-[17px] ${it.done ? "text-ink-muted line-through" : ""}`}
-                      >
-                        {it.name}
-                      </span>
-                      <span class="text-[15px] tabular-nums text-ink-muted">
-                        {it.amount}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <AisleGroup key={g.aisle} aisle={g.aisle}>
+                {g.items.map((it) => (
+                  <ListRow key={it.name} name={it.name} amount={it.amount} checked={!!it.done} />
+                ))}
+              </AisleGroup>
             ))}
           </div>
         </div>
@@ -726,13 +661,13 @@ function SuggestSheet({
 }) {
   const suggest = api.useMutation("suggestMeal");
   const [title, setTitle] = useState("");
-  const [ingredients, setIngredients] = useState("");
+  const [ingredients, setIngredients] = useState<string[]>([]);
   const r = useRunner();
   const submit = async (e: Event) => {
     e.preventDefault();
     if (!title.trim()) return;
     const ok = await r.run(() =>
-      suggest(date, title, ingredients).then(() => true),
+      suggest(date, title, ingredients.join("\n")).then(() => true),
     );
     if (ok) onDone();
   };
@@ -767,16 +702,12 @@ function SuggestSheet({
             onInput={(e: any) => setTitle(e.target.value)}
           />
         </Field>
-        <Field
+        <IngredientEntry
           label="Ingredients (optional)"
-          hint="One per line. Leave it empty and Fork fills in a usual recipe when it knows the dish."
-        >
-          <Textarea
-            placeholder={"2 lb chicken thighs\n1 onion\n3 cloves garlic"}
-            value={ingredients}
-            onInput={(e: any) => setIngredients(e.target.value)}
-          />
-        </Field>
+          hint="Return adds one. Leave it empty and Fork fills in a usual recipe when it knows the dish."
+          lines={ingredients}
+          onChange={setIngredients}
+        />
         <ErrorLine text={r.error} />
       </div>
     </Sheet>
@@ -795,7 +726,7 @@ function IngredientsEditor({
   onDone: () => void;
 }) {
   const save = api.useMutation("setIngredients");
-  const [text, setText] = useState(lines.join("\n"));
+  const [list, setList] = useState<string[]>(lines);
   const r = useRunner();
   return (
     <Sheet
@@ -804,7 +735,7 @@ function IngredientsEditor({
       onClose={onDone}
       onSubmit={async (e) => {
         e.preventDefault();
-        const ok = await r.run(() => save(suggestionId, text).then(() => true));
+        const ok = await r.run(() => save(suggestionId, list.join("\n")).then(() => true));
         if (ok) onDone();
       }}
       actions={
@@ -819,15 +750,7 @@ function IngredientsEditor({
       }
     >
       <div class="flex flex-col gap-3">
-        <Field label="Ingredients" hint="One per line.">
-          <Textarea
-            autoFocus
-            class="min-h-40"
-            placeholder={"2 lb chicken thighs\n1 onion\n3 cloves garlic"}
-            value={text}
-            onInput={(e: any) => setText(e.target.value)}
-          />
-        </Field>
+        <IngredientEntry autoFocus lines={list} onChange={setList} />
         <ErrorLine text={r.error} />
       </div>
     </Sheet>
@@ -926,13 +849,7 @@ function DayCard({ day, isToday, bare }: { day: Day; isToday: boolean; bare?: bo
               ) : null}
                 <div class="text-[15px]">
                   {s.ingredientLines.length ? (
-                    <ul class="columns-1 gap-6 sm:columns-2">
-                      {s.ingredientLines.map((line, i) => (
-                        <li key={i} class="py-0.5">
-                          {line}
-                        </li>
-                      ))}
-                    </ul>
+                    <IngredientList items={s.ingredientLines.map((l) => parseLine(l) ?? { amount: "", name: l, prep: "" })} />
                   ) : (
                     <p class="text-ink-muted">
                       No ingredients yet, so picking it won't add anything to
@@ -1016,44 +933,31 @@ function TonightHero({ day, onOpen }: { day: Day; onOpen: () => void }) {
       : `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"}, nothing picked yet`
     : "No ideas yet";
   return (
-    <section class="relative -mx-5 overflow-hidden md:mx-0 md:rounded-3xl" data-component="TonightHero">
-      <button type="button" class="block w-full text-left" onClick={onOpen} aria-label={`Open tonight: ${lead?.title ?? "no ideas yet"}`}>
-        <MealImage
-          id={pic?.url ?? null}
-          title={lead?.title ?? ""}
-          showTitle={false}
-          eager
-          sizes="(min-width: 768px) 640px, 100vw"
-          widths={[800, 1280]}
-          class="aspect-[4/5] w-full md:aspect-[16/10]"
-        />
-        <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-      </button>
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 p-5 text-white md:p-8">
-        <p class="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/80">Tonight</p>
-        <h2 class="mt-1 text-[clamp(2.25rem,9vw,3.5rem)] font-bold leading-[1] tracking-[-0.04em]">{lead?.title ?? "What's for dinner?"}</h2>
-        <p class="mt-2 text-[15px] text-white/85">{meta}</p>
-        <div class="pointer-events-auto mt-5 flex gap-2">
-          {lead && picked && !day.chefName ? (
+    <div class="-mx-5 md:mx-0" data-component="TonightHero">
+      <PhotoHero
+        tall
+        image={pic?.url ?? null}
+        title={lead?.title ?? "What's for dinner?"}
+        eyebrow="Tonight"
+        meta={meta}
+        onOpen={onOpen}
+        openLabel={`Open tonight: ${lead?.title ?? "no ideas yet"}`}
+        topRight={lead ? <PhotoButton has={!!pic} onClick={() => setChoosing(true)} /> : null}
+        actions={
+          lead && picked && !day.chefName ? (
             <Button type="button" class="bg-white text-black hover:bg-white/90" disabled={r.busy} onClick={() => void r.run(() => chef(day.date, true))}>
               I'll cook
             </Button>
           ) : (
-            <Button type="button" class="bg-white text-black hover:bg-white/90" onClick={onOpen}>
+            <Button type="button" class={pic ? "bg-white text-black hover:bg-white/90" : ""} onClick={onOpen}>
               {lead ? (picked ? "See the plan" : "Vote and pick") : "Suggest a meal"}
             </Button>
-          )}
-          {lead ? (
-            <Button type="button" variant="ghost" class="text-white hover:bg-white/15 hover:text-white" onClick={() => setChoosing(true)}>
-              <Icon name="camera" size={18} />
-              {pic ? "Photo" : "Add photo"}
-            </Button>
-          ) : null}
-        </div>
-      </div>
+          )
+        }
+      />
       {choosing && lead ? <PhotoPicker title={lead.title} current={pic} onClose={() => setChoosing(false)} /> : null}
       <ErrorLine text={r.error} />
-    </section>
+    </div>
   );
 }
 
@@ -1072,29 +976,24 @@ function DayRow({ day, label, onOpen }: { day: Day; label: string; onOpen: () =>
       ? `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"} to vote on`
       : "Nothing planned";
   return (
-    <li>
-      <button type="button" class="flex w-full items-center gap-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-ink" onClick={onOpen} data-component="DayRow">
-        {lead ? (
+    <Row
+      component="DayRow"
+      media={
+        lead ? (
           <Thumb title={lead.title} photo={photoFor(photos, lead.title)?.url ?? null} size="lg" />
         ) : (
           <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-dashed border-line text-ink-muted">
             <Icon name="plus" size={20} />
           </span>
-        )}
-        <span class="min-w-0 flex-1">
-          <span class="block text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
-            {label} · {shortDate(day.date)}
-          </span>
-          <span class={`block truncate text-[19px] font-semibold tracking-[-0.02em] ${lead ? "text-ink" : "text-ink-muted"}`}>
-            {lead ? lead.title : "Add an idea"}
-          </span>
-          <span class="block truncate text-[15px] text-ink-muted">{meta}</span>
-        </span>
-        <span class="text-ink-muted">
-          <Icon name="chevronRight" size={20} />
-        </span>
-      </button>
-    </li>
+        )
+      }
+      eyebrow={`${label} · ${shortDate(day.date)}`}
+      title={lead ? lead.title : "Add an idea"}
+      muted={!lead}
+      meta={meta}
+      onClick={onOpen}
+      chevron
+    />
   );
 }
 
@@ -1137,7 +1036,7 @@ function WeekPage() {
             </Button>
           </div>
         </div>
-        <ul class="mt-1 divide-y divide-line">
+        <ul class="mt-1">
           {rest.map((d) => (
             <DayRow key={d.date} day={d} label={dayLabel(d.date, today)} onOpen={() => setOpenDate(d.date)} />
           ))}

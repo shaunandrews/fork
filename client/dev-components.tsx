@@ -19,6 +19,8 @@ import {
   SectionHeading,
   Sheet,
   sheetAction,
+  IngredientEntry,
+  Chip,
   Select,
   PersonRow,
   Confirm,
@@ -331,6 +333,10 @@ function Molecules({ mode }: { mode: Mode }) {
         </ul>
       </Specimen>
 
+      <Specimen id="ingredients" name="Ingredient entry" mode={mode} usage="The one way to enter ingredients, everywhere: recipes, suggestions, editing a day's meal. Type a line, Return adds it. Backspace in the empty box takes the last one back.">
+        <IngredientDemo />
+      </Specimen>
+
       <Specimen id="person" name="Person row" mode={mode} usage="Someone in the family: initial, name, one meta line.">
         <ul class="max-w-[420px] border-t border-line">
           <PersonRow name="Sam (you)" meta="Started the family" />
@@ -509,5 +515,19 @@ function ConfirmDemo() {
         />
       ) : null}
     </>
+  );
+}
+
+function IngredientDemo() {
+  const [lines, setLines] = useState(["2 lb chicken thighs", "1 onion, diced"]);
+  const [on, setOn] = useState(false);
+  return (
+    <div class="flex max-w-[420px] flex-col gap-6">
+      <IngredientEntry lines={lines} onChange={setLines} />
+      <div class="flex gap-2">
+        <Chip pressed={on} onClick={() => setOn(!on)}>quick</Chip>
+        <Chip pressed={!on} onClick={() => setOn(!on)}>chicken</Chip>
+      </div>
+    </div>
   );
 }

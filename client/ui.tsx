@@ -2,8 +2,8 @@
 // in Fork's names and DESIGN.md tokens. Screens use these, never raw elements. Presentational only:
 // no data fetching here, so every piece renders in the /dev/components library.
 //
-//   Atoms      Button, TextLink, Input, Textarea, Select, Tag, VoteButton, CheckCircle, Thumb, Icon
-//   Molecules  Field, SearchField, MealTile, SuggestionRow, ListRow, PersonRow, EmptyState, SectionHeading
+//   Atoms      Button, TextLink, Input, Textarea, Select, Tag, Chip, VoteButton, CheckCircle, Thumb, Icon
+//   Molecules  Field, SearchField, MealTile, Row, IconButton, SuggestionRow, ListRow, PersonRow, IngredientList, IngredientEntry, EmptyState, SectionHeading
 //   Organisms  DayPlan, AisleGroup, Sheet (shadcn Drawer + Dialog), Confirm (shadcn AlertDialog)
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
@@ -22,6 +22,7 @@ import {
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { Badge } from "./components/ui/badge";
 import { cn } from "./lib/utils";
+import { lineText, parseLine, type IngredientLine } from "../shared/ingredients";
 import { Button as UIButton, buttonVariants } from "./components/ui/button";
 import { Checkbox } from "./components/ui/checkbox";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
@@ -285,94 +286,7 @@ export function MealTile({
   );
 }
 
-/** One suggested meal for a day: thumb, title, who suggested it, votes, and a pick action. */
-export function SuggestionRow({
-  title,
-  meta,
-  photo,
-  votes,
-  voted,
-  picked,
-  onVote,
-  onPick,
-  onOpen,
-  open,
-  children,
-}: {
-  title: string;
-  meta: string;
-  photo?: string | null;
-  votes: number;
-  voted?: boolean;
-  picked?: boolean;
-  onVote?: () => void;
-  onPick?: () => void;
-  onOpen?: () => void;
-  open?: boolean;
-  children?: any;
-}) {
-  return (
-    <li class="border-b border-line" data-component="SuggestionRow">
-      <div class="flex items-center gap-3 py-3 md:gap-4">
-        <Thumb title={title} photo={photo} />
-        <button class={cx("min-w-0 flex-1 text-left", focus, "rounded-[4px]")} onClick={onOpen} aria-expanded={onOpen ? !!open : undefined} disabled={!onOpen}>
-          <span class="flex items-center gap-2">
-            <span class="truncate text-[17px] font-medium">{title}</span>
-            {picked ? (
-              <span class="hidden sm:inline-flex">
-                <Tag>Picked</Tag>
-              </span>
-            ) : null}
-          </span>
-          <span class="flex items-center gap-2">
-            {picked ? (
-              <span class="sm:hidden">
-                <Tag>Picked</Tag>
-              </span>
-            ) : null}
-            <span class="truncate text-[15px] text-ink-muted">{meta}</span>
-          </span>
-        </button>
-        <VoteButton count={votes} active={voted} onClick={onVote} />
-        {onPick ? (
-          <Button variant={picked ? "ghost" : "secondary"} size="sm" onClick={onPick} aria-pressed={!!picked}>
-            {picked ? "Unpick" : "Pick"}
-          </Button>
-        ) : null}
-      </div>
-      {open && children ? <div class="pb-4 pl-[68px] md:pl-[72px]">{children}</div> : null}
-    </li>
-  );
-}
 
-export function ListRow({ name, amount, detail, checked, onToggle, onRemove }: { name: string; amount?: string; detail?: string; checked: boolean; onToggle?: () => void; onRemove?: () => void }) {
-  const content = (
-    <>
-      <CheckCircle checked={checked} />
-      <span class="min-w-0 flex-1">
-        <span class={cx("block truncate text-[17px]", checked && "text-ink-muted line-through")}>{name}</span>
-        {detail ? <span class="block truncate text-[13px] text-ink-muted">{detail}</span> : null}
-      </span>
-      {amount ? <span class="shrink-0 text-[15px] tabular-nums text-ink-muted">{amount}</span> : null}
-    </>
-  );
-  return (
-    <li class="flex items-center border-b border-line" data-component="ListRow">
-      {onToggle ? (
-        <button class={cx("flex min-h-[52px] min-w-0 flex-1 items-center gap-3 py-2 text-left", focus)} onClick={onToggle} aria-pressed={checked}>
-          {content}
-        </button>
-      ) : (
-        <div class="flex min-h-[52px] min-w-0 flex-1 items-center gap-3 py-2">{content}</div>
-      )}
-      {onRemove ? (
-        <button class={cx("ml-1 flex h-11 w-9 shrink-0 items-center justify-center text-ink-muted hover:text-ink", focus)} aria-label={`Remove ${name}`} onClick={onRemove}>
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-        </button>
-      ) : null}
-    </li>
-  );
-}
 
 /** shadcn Empty: one line saying what's missing, one action that fixes it. */
 export function EmptyState({ title, body, action }: { title: string; body?: string; action?: any }) {
@@ -568,17 +482,296 @@ export function Confirm({
   );
 }
 
+
+/**
+ * Ingredients as a list: amount in its own column, then the name and any prep.
+ * Read-only by default; pass onEdit and onRemove for the editable version inside IngredientEntry.
+ */
+export function IngredientList({ items, onEdit, onRemove }: { items: IngredientLine[]; onEdit?: (i: number) => void; onRemove?: (i: number) => void }) {
+  if (!items.length) return null;
+  return (
+    <ul class="border-t border-line" data-component="IngredientList">
+      {items.map((it, i) => {
+        const body = (
+          <>
+            <span class="w-16 shrink-0 text-[15px] tabular-nums text-ink-muted">{it.amount}</span>
+            <span class="min-w-0 truncate text-[17px]">
+              {it.name}
+              {it.prep ? <span class="text-ink-muted">, {it.prep}</span> : null}
+            </span>
+          </>
+        );
+        return (
+          <li key={i} class="flex items-center border-b border-line">
+            {onEdit ? (
+              <button type="button" tabIndex={-1} class="flex min-h-[48px] min-w-0 flex-1 items-baseline gap-3 py-2 text-left" onClick={() => onEdit(i)} title="Edit">
+                {body}
+              </button>
+            ) : (
+              <div class="flex min-h-[48px] min-w-0 flex-1 items-baseline gap-3 py-2">{body}</div>
+            )}
+            {onRemove ? (
+              <IconButton quiet icon="close" label={`Remove ${it.name}`} onClick={() => onRemove(i)} />
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * The one way to enter ingredients. Type "2 lb chicken thighs, diced" and press Return: it's
+ * added and the box is ready for the next. Backspace or ↑ in the empty box takes the last one
+ * back to edit; tap a row to edit it. Pasting several lines adds them all. Only the box is in
+ * the tab order. Lines in, lines out ("2 lb chicken thighs, diced").
+ */
+export function IngredientEntry({
+  lines,
+  onChange,
+  known = [],
+  label = "Ingredients",
+  hint = "Return adds it. Paste a whole list to add it all at once.",
+  autoFocus,
+}: {
+  lines: string[];
+  onChange: (lines: string[]) => void;
+  known?: string[];
+  label?: string;
+  hint?: string;
+  autoFocus?: boolean;
+}) {
+  const [text, setText] = useState("");
+  const id = useId();
+  const items = lines.map((l) => parseLine(l) ?? { amount: "", name: l, prep: "" });
+  const addText = (t: string) => {
+    const parsed = t.split(/\n|;/).map((l) => l.trim()).filter(Boolean).map((l) => parseLine(l)).filter((x): x is IngredientLine => x !== null);
+    if (parsed.length) onChange([...lines, ...parsed.map(lineText)]);
+  };
+  const takeBack = (i: number) => {
+    const rest = lines.filter((_, j) => j !== i);
+    if (text.trim()) {
+      const extra = parseLine(text.trim());
+      if (extra) rest.push(lineText(extra));
+    }
+    onChange(rest);
+    setText(lineText(items[i]));
+  };
+  return (
+    <div class="flex flex-col gap-2" data-component="IngredientEntry">
+      <label for={id} class="text-[15px] font-medium text-ink">
+        {label}
+      </label>
+      <IngredientList items={items} onEdit={takeBack} onRemove={(i) => onChange(lines.filter((_, j) => j !== i))} />
+      <UIInput
+        id={id}
+        autoFocus={autoFocus}
+        list={known.length ? `${id}-known` : undefined}
+        autoComplete="off"
+        enterKeyHint="enter"
+        className="[&::-webkit-calendar-picker-indicator]:hidden"
+        placeholder={lines.length ? "Add another" : "2 lb chicken thighs, diced"}
+        value={text}
+        onInput={(e: any) => setText(e.target.value)}
+        onPaste={(e: any) => {
+          const t = e.clipboardData?.getData("text") ?? "";
+          if (t.includes("\n")) {
+            e.preventDefault();
+            addText(t);
+          }
+        }}
+        onKeyDown={(e: any) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            addText(text);
+            setText("");
+          } else if ((e.key === "Backspace" || e.key === "ArrowUp") && !text && lines.length) {
+            e.preventDefault();
+            takeBack(lines.length - 1);
+          }
+        }}
+      />
+      {known.length ? (
+        <datalist id={`${id}-known`}>
+          {known.map((k) => (
+            <option key={k} value={k} />
+          ))}
+        </datalist>
+      ) : null}
+      {hint ? <p class="text-[13px] text-ink-muted">{hint}</p> : null}
+    </div>
+  );
+}
+
+/** A small round icon-only control, kept out of the tab order when the row has a keyboard path of its own. */
+export function IconButton({ icon, label, onClick, quiet, size = 16 }: { icon: string; label: string; onClick: () => void; quiet?: boolean; size?: number }) {
+  return (
+    <button type="button" tabIndex={quiet ? -1 : undefined} class={cx("flex h-11 w-10 shrink-0 items-center justify-center text-ink-muted hover:text-ink", focus)} aria-label={label} onClick={onClick} data-component="IconButton">
+      <Icon name={icon} size={size} />
+    </button>
+  );
+}
+
+/**
+ * The one list row. Leading media (a Thumb, an Avatar, a check), an optional eyebrow, the title,
+ * a meta line, and trailing bits. With onClick the main part is a button; `chevron` adds →.
+ * SuggestionRow, ListRow, PersonRow, DayRow and the ingredient rows are all this.
+ */
+export function Row({
+  media,
+  eyebrow,
+  title,
+  titleExtra,
+  meta,
+  trailing,
+  after,
+  onClick,
+  chevron,
+  muted,
+  struck,
+  pressed,
+  expanded,
+  component = "Row",
+  children,
+}: {
+  media?: any;
+  eyebrow?: any;
+  title: any;
+  titleExtra?: any;
+  meta?: any;
+  /** Inside the clickable area, at the end (an amount, a count). */
+  trailing?: any;
+  /** Outside the clickable area (a vote toggle, a remove button). */
+  after?: any;
+  onClick?: () => void;
+  chevron?: boolean;
+  muted?: boolean;
+  struck?: boolean;
+  pressed?: boolean;
+  expanded?: boolean;
+  component?: string;
+  children?: any;
+}) {
+  const body = (
+    <>
+      {media}
+      <span class="min-w-0 flex-1">
+        {eyebrow ? <span class="block text-[13px] font-semibold uppercase tracking-[0.06em] text-ink-muted">{eyebrow}</span> : null}
+        <span class="flex items-center gap-2">
+          <span class={cx("truncate text-[17px] font-medium", muted && "text-ink-muted", struck && "text-ink-muted line-through")}>{title}</span>
+          {titleExtra}
+        </span>
+        {meta ? <span class="block truncate text-[15px] text-ink-muted">{meta}</span> : null}
+      </span>
+      {trailing ? <span class="shrink-0 text-[15px] tabular-nums text-ink-muted">{trailing}</span> : null}
+      {chevron ? (
+        <span class="shrink-0 text-ink-muted">
+          <Icon name="chevronRight" size={20} />
+        </span>
+      ) : null}
+    </>
+  );
+  const box = "flex min-h-[56px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left md:gap-4";
+  return (
+    <li class="border-b border-line" data-component={component}>
+      <div class="flex items-center gap-2">
+        {onClick ? (
+          <button type="button" class={cx(box, focus)} onClick={onClick} aria-pressed={pressed} aria-expanded={expanded}>
+            {body}
+          </button>
+        ) : (
+          <div class={box}>{body}</div>
+        )}
+        {after}
+      </div>
+      {children ? <div class="pb-4">{children}</div> : null}
+    </li>
+  );
+}
+
+/** One suggested meal for a day: photo, title, who suggested it, and the vote. Tap to open its details. */
+export function SuggestionRow({
+  title,
+  meta,
+  photo,
+  votes,
+  voted,
+  picked,
+  onVote,
+  onOpen,
+  open,
+  children,
+}: {
+  title: string;
+  meta: string;
+  photo?: string | null;
+  votes: number;
+  voted?: boolean;
+  picked?: boolean;
+  onVote?: () => void;
+  onOpen?: () => void;
+  open?: boolean;
+  children?: any;
+}) {
+  return (
+    <Row
+      component="SuggestionRow"
+      media={<Thumb title={title} photo={photo} />}
+      title={title}
+      titleExtra={picked ? <Tag>Picked</Tag> : null}
+      meta={meta}
+      onClick={onOpen}
+      expanded={onOpen ? !!open : undefined}
+      after={<VoteButton count={votes} active={voted} onClick={onVote} />}
+    >
+      {open && children ? <div class="pl-[68px] md:pl-[72px]">{children}</div> : null}
+    </Row>
+  );
+}
+
+/** A shopping-list item: tick it, see the amount, remove it. */
+export function ListRow({ name, amount, detail, checked, onToggle, onRemove }: { name: string; amount?: string; detail?: string; checked: boolean; onToggle?: () => void; onRemove?: () => void }) {
+  return (
+    <Row
+      component="ListRow"
+      media={<CheckCircle checked={checked} />}
+      title={name}
+      struck={checked}
+      meta={detail}
+      trailing={amount}
+      onClick={onToggle}
+      pressed={onToggle ? checked : undefined}
+      after={onRemove ? <IconButton icon="close" size={14} label={`Remove ${name}`} onClick={onRemove} /> : null}
+    />
+  );
+}
+
 /** One person: shadcn Avatar with their initial, the name, and a meta line. */
 export function PersonRow({ name, meta }: { name: string; meta?: string }) {
   return (
-    <li class="flex min-h-[56px] items-center gap-3 border-b border-line py-2" data-component="PersonRow">
-      <Avatar className="size-10">
-        <AvatarFallback className="bg-surface-strong font-display text-[18px] text-ink">{name.trim()[0]?.toUpperCase() ?? "?"}</AvatarFallback>
-      </Avatar>
-      <span class="min-w-0 flex-1">
-        <span class="block truncate text-[17px]">{name}</span>
-        {meta ? <span class="block truncate text-[13px] text-ink-muted">{meta}</span> : null}
-      </span>
-    </li>
+    <Row
+      component="PersonRow"
+      media={
+        <Avatar className="size-10">
+          <AvatarFallback className="bg-surface-strong text-[16px] font-bold text-ink">{name.trim()[0]?.toUpperCase() ?? "?"}</AvatarFallback>
+        </Avatar>
+      }
+      title={name}
+      meta={meta}
+    />
+  );
+}
+
+/** A filter you switch on and off (Ideas tags): shadcn Toggle as a pill. */
+export function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: any }) {
+  return (
+    <Toggle
+      data-component="Chip"
+      pressed={pressed}
+      onPressedChange={() => onClick()}
+      className="h-9 shrink-0 rounded-full border border-line px-3.5 text-[15px] font-medium text-ink-muted hover:bg-transparent hover:text-ink data-[pressed]:border-ink data-[pressed]:bg-ink data-[pressed]:text-canvas"
+    >
+      {children}
+    </Toggle>
   );
 }

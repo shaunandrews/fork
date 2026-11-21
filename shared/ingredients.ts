@@ -320,3 +320,17 @@ export function aggregateList(entries: ListEntryLike[], checkedKeys: Set<string>
       items: items.sort((a, b) => Number(a.checked) - Number(b.checked) || a.name.localeCompare(b.name)),
     }));
 }
+
+/** One ingredient line as people write it: "2 lb chicken thighs, diced". */
+export type IngredientLine = { amount: string; name: string; prep: string };
+
+export function parseLine(line: string): IngredientLine | null {
+  const [head, ...rest] = line.split(",");
+  const it = parseIngredient(head);
+  if (!it) return null;
+  return { amount: formatAmount(it.qty, it.unit), name: it.name, prep: rest.join(",").trim() };
+}
+
+export function lineText(l: IngredientLine): string {
+  return [l.amount, l.name].filter(Boolean).join(" ") + (l.prep ? `, ${l.prep}` : "");
+}
