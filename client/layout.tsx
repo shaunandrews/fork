@@ -195,7 +195,7 @@ export function AppFrame({ familyName, children }: { familyName?: string; childr
     <div class="min-h-screen bg-canvas font-sans text-ink">
       <SkipLink />
       <header class="sticky top-0 z-20 bg-canvas" data-component="TopBar">
-        <div class={`${container} flex h-14 items-center justify-between gap-6 lg:h-16`}>
+        <div class={`${container} flex h-14 items-center justify-between gap-6`}>
           <div class="flex items-baseline gap-3">
             <Brand />
             {familyName ? <span class="hidden text-[15px] text-ink-muted sm:inline lg:hidden">{familyName}</span> : null}
@@ -243,10 +243,11 @@ export function AppFrame({ familyName, children }: { familyName?: string; childr
 
 export type SubNavItem = { to: string; label: string };
 
+/** Sections within a tab (Recipes · Ideas · Ingredients): a compact segmented control. */
 export function SubNav({ items }: { items: SubNavItem[] }) {
   const loc = useLocation();
   return (
-    <nav class="mt-6 flex gap-6 border-b border-line" aria-label="Section" data-component="SubNav">
+    <nav class="inline-flex rounded-full bg-surface p-1" aria-label="Section" data-component="SubNav">
       {items.map((it) => {
         const on = loc.pathname === it.to;
         return (
@@ -254,7 +255,7 @@ export function SubNav({ items }: { items: SubNavItem[] }) {
             key={it.to}
             to={it.to}
             aria-current={on ? "page" : undefined}
-            class={`-mb-px border-b-2 pb-3 text-[15px] font-medium ${on ? "border-ink text-ink" : "border-transparent text-ink-muted hover:text-ink"}`}
+            class={`rounded-full px-4 py-1.5 text-[15px] font-medium ${on ? "bg-canvas text-ink shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-ink-muted hover:text-ink"}`}
           >
             {it.label}
           </Link>
@@ -264,7 +265,11 @@ export function SubNav({ items }: { items: SubNavItem[] }) {
   );
 }
 
-/** A signed-in screen: header (back, title, description, actions, sub-nav) and a flow or wide body. */
+/**
+ * A signed-in screen. Top-level tabs (no `back`) don't repeat their name as a big title: the tab
+ * bar already says where you are, so the content starts right under it. Screens you drill into
+ * (with `back`) show the back link and their title.
+ */
 export function AppPage({
   title,
   tabTitle,
@@ -286,25 +291,26 @@ export function AppPage({
 }) {
   usePageTitle(tabTitle ?? (typeof title === "string" ? title : undefined));
   const inner = width === "flow" ? flow : "";
+  const showTitle = !!back;
   return (
     <div class={container}>
       <div class={inner}>
-        <header class="pt-8 md:pt-12" data-component="PageHeader">
+        <header class={showTitle ? "pt-4 md:pt-8" : "pt-3 md:pt-6"} data-component="PageHeader">
           {back ? (
-            <div class="mb-4">
+            <div class="mb-3">
               <BackLink to={back.to} text={back.text} />
             </div>
           ) : null}
-          <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div class="min-w-0">
-              <h1 class={displayLg}>{title}</h1>
-              {description ? <p class="mt-2 max-w-[36rem] text-[17px] leading-relaxed text-ink-muted">{description}</p> : null}
+          {showTitle ? <h1 class={displayLg}>{title}</h1> : <h1 class="sr-only">{title}</h1>}
+          {description ? <p class="mt-2 max-w-[36rem] text-[17px] leading-relaxed text-ink-muted">{description}</p> : null}
+          {subnav || actions ? (
+            <div class={`flex flex-wrap items-center justify-between gap-3 ${showTitle ? "mt-4" : ""}`}>
+              {subnav ? <SubNav items={subnav} /> : <span />}
+              {actions ? <div class="flex shrink-0 flex-wrap items-center gap-3">{actions}</div> : null}
             </div>
-            {actions ? <div class="flex shrink-0 flex-wrap items-center gap-3">{actions}</div> : null}
-          </div>
-          {subnav ? <SubNav items={subnav} /> : null}
+          ) : null}
         </header>
-        <div class="mt-8 md:mt-10">{children}</div>
+        <div class={subnav || actions || showTitle ? "mt-5 md:mt-6" : "mt-0"}>{children}</div>
       </div>
     </div>
   );

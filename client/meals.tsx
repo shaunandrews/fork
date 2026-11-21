@@ -9,7 +9,7 @@ import { RECIPES } from "../shared/recipes";
 import { PhotoButton, PhotoPicker, photoFor, usePhotos } from "./photos";
 
 import { dayName, shortDate } from "../shared/dates";
-import { AppPage, DetailTemplate, cardGrid, displayMd } from "./layout";
+import { AppPage, DetailTemplate, SubNav, cardGrid, displayMd } from "./layout";
 import { AisleGroup, Button, Chip, Confirm, IngredientEntry, IngredientList, Row, EmptyState, Field, Icon, Input, MealTile, SearchField, Select, Sheet, Tag, Textarea, buttonClass, sheetAction } from "./ui";
 
 const mealKey = (t: string) => t.replace(/\s+/g, " ").trim().toLowerCase();
@@ -29,6 +29,16 @@ function Notice({ text }: { text: string | null }) {
 
 // ---------- section nav ----------
 
+/** Recipes · Ideas · Ingredients, then the page's own search and + on the same row (wraps on phones). */
+function MealsToolbar({ children }: { children: any }) {
+  return (
+    <div class="flex flex-wrap items-center gap-3">
+      <SubNav items={MEALS_NAV} />
+      <div class="flex min-w-[260px] flex-1 gap-3 md:max-w-[520px]">{children}</div>
+    </div>
+  );
+}
+
 export const MEALS_NAV = [
   { to: "/meals", label: "Recipes" },
   { to: "/meals/ideas", label: "Ideas" },
@@ -47,7 +57,7 @@ export function RecipesPage() {
   const shown = meals.filter((m) => !needle || m.title.toLowerCase().includes(needle) || m.preview.some((p) => p.includes(needle)));
   return (
     <div>
-      <div class="flex max-w-[640px] gap-3">
+      <MealsToolbar>
         <SearchField
           value={q}
           onInput={setQ}
@@ -58,12 +68,12 @@ export function RecipesPage() {
             else if (q.trim()) navigate(`/meals/new?title=${encodeURIComponent(q.trim())}`);
           }}
         />
-        <Link to="/meals/new" class={buttonClass("primary") + " h-12 shrink-0"}>
-          New recipe
-        </Link>
-      </div>
+        <Button to="/meals/new" variant="secondary" class="size-12 shrink-0 px-0" aria-label="New recipe" title="New recipe">
+          <Icon name="plus" size={20} />
+        </Button>
+      </MealsToolbar>
       {shown.length ? (
-        <ul class={`${cardGrid} mt-8`}>
+        <ul class={`${cardGrid} mt-6`}>
           {shown.map((m) => (
             <li key={m.key}>
               <MealTile
@@ -299,9 +309,9 @@ export function IdeasPage() {
   );
   return (
     <div>
-      <div class="max-w-[640px]">
+      <MealsToolbar>
         <SearchField value={q} onInput={setQ} placeholder="Search Fork's ideas" />
-      </div>
+      </MealsToolbar>
       <div class="-mx-5 mt-4 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
         {TAGS.map((t) => (
           <Chip key={t} pressed={tag === t} onClick={() => setTag(tag === t ? null : t)}>
@@ -309,7 +319,7 @@ export function IdeasPage() {
           </Chip>
         ))}
       </div>
-      <ul class={`${cardGrid} mt-8`}>
+      <ul class={`${cardGrid} mt-6`}>
         {shown.map((x) => (
           <li key={x.title}>
             <MealTile
@@ -536,12 +546,12 @@ export function IngredientsPage() {
   const groups = AISLES.map((a) => ({ aisle: a as string, items: shown.filter((x) => x.aisle === a) })).filter((g) => g.items.length);
   return (
     <div>
-      <div class="flex gap-2">
+      <MealsToolbar>
         <SearchField value={q} onInput={setQ} placeholder="Search ingredients" />
-        <Button class="h-12 shrink-0" onClick={() => setAdding(true)}>
-          + Add
+        <Button variant="secondary" class="size-12 shrink-0 px-0" aria-label="Add an ingredient" title="Add an ingredient" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={20} />
         </Button>
-      </div>
+      </MealsToolbar>
       {adding ? (
         <Sheet
           title="Add an ingredient"
