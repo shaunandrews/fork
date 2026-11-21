@@ -57,7 +57,16 @@ export function RecipesPage() {
   return (
     <div>
       <div class="flex max-w-[640px] gap-3">
-        <SearchField value={q} onInput={setQ} placeholder="Search recipes or ingredients" />
+        <SearchField
+          value={q}
+          onInput={setQ}
+          placeholder="Search or add a recipe"
+          onEnter={() => {
+            const exact = shown.find((m) => m.title.toLowerCase() === needle) ?? (shown.length === 1 ? shown[0] : null);
+            if (exact) navigate(`/recipe/${exact.slug}`);
+            else if (q.trim()) navigate(`/meals/new?title=${encodeURIComponent(q.trim())}`);
+          }}
+        />
         <Link to="/meals/new" class={buttonClass("primary") + " h-12 shrink-0"}>
           New recipe
         </Link>
@@ -78,7 +87,12 @@ export function RecipesPage() {
       ) : (
         <div class="mt-12 max-w-[30rem]">
           {needle ? (
-            <p class="font-display text-[26px] font-bold leading-tight">No recipes match.</p>
+            <>
+              <p class="font-display text-[26px] font-bold leading-tight">No “{q.trim()}” yet.</p>
+              <Link to={`/meals/new?title=${encodeURIComponent(q.trim())}`} class={buttonClass("primary") + " mt-4"}>
+                Add “{q.trim()}” <kbd class="ml-2 hidden rounded border border-white/30 px-1.5 text-[12px] md:inline">Return</kbd>
+              </Link>
+            </>
           ) : (
             <>
               <p class="font-display text-[26px] font-bold leading-tight">No recipes yet.</p>
@@ -99,6 +113,95 @@ export function RecipesPage() {
 type Row = { amount: string; name: string; prep: string };
 type Draft = { title: string; servings: string; notes: string; rows: Row[] };
 
+const rowText = (r: Row) => [r.amount, r.name].filter(Boolean).join(" ") + (r.prep ? `, ${r.prep}` : "");
+
+/**
+ * Type "2 lb chicken thighs, diced" and press Return: it's added and the box is ready for the
+ * next one. Backspace in an empty box takes the last one back to edit; ↑ does the same. Tap a
+ * row to edit it. Nothing else sits in the tab order, so Tab goes straight on to the next field.
+ */
+function IngredientEntry({ rows, known, onChange, onPaste }: { rows: Row[]; known: string[]; onChange: (rows: Row[]) => void; onPaste: () => void }) {
+  const [text, setText] = useState("");
+  const add = () => {
+    const lines = text.split(/\n|;/).map((l) => l.trim()).filter(Boolean);
+    const parsed = lines.map(splitLine).filter((x): x is Row => x !== null);
+    if (!parsed.length) return;
+    onChange([...rows, ...parsed]);
+    setText("");
+  };
+  const takeBack = (i: number) => {
+    if (text.trim()) add();
+    setText(rowText(rows[i]));
+    onChange(rows.filter((_, j) => j !== i));
+  };
+  return (
+    <section data-component="IngredientEntry">
+      <label for="ingredient-entry" class="mb-2 block text-[15px] font-medium text-ink">
+        Ingredients
+      </label>
+      {rows.length ? (
+        <ul class="mb-2 border-t border-line">
+          {rows.map((row, i) => (
+            <li key={i} class="flex items-center border-b border-line">
+              <button type="button" tabIndex={-1} class="flex min-h-[48px] min-w-0 flex-1 items-baseline gap-3 py-2 text-left" onClick={() => takeBack(i)} title="Edit">
+                <span class="w-16 shrink-0 text-[15px] tabular-nums text-ink-muted">{row.amount}</span>
+                <span class="min-w-0 truncate text-[17px]">
+                  {row.name}
+                  {row.prep ? <span class="text-ink-muted">, {row.prep}</span> : null}
+                </span>
+              </button>
+              <button type="button" tabIndex={-1} class="flex h-11 w-10 shrink-0 items-center justify-center text-ink-muted hover:text-ink" aria-label={`Remove ${row.name}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+                <Icon name="close" size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Input
+        id="ingredient-entry"
+        class="[&::-webkit-calendar-picker-indicator]:hidden"
+        list="fork-ingredients"
+        autoComplete="off"
+        enterKeyHint="enter"
+        placeholder={rows.length ? "Add another" : "2 lb chicken thighs, diced"}
+        value={text}
+        onInput={(e: any) => setText(e.target.value)}
+        onPaste={(e: any) => {
+          const t = e.clipboardData?.getData("text") ?? "";
+          if (t.includes("\n")) {
+            e.preventDefault();
+            const parsed = t.split("\n").map((l: string) => splitLine(l.trim())).filter((x: Row | null): x is Row => x !== null);
+            onChange([...rows, ...parsed]);
+          }
+        }}
+        onKeyDown={(e: any) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            add();
+          } else if ((e.key === "Backspace" && !text) || (e.key === "ArrowUp" && !text)) {
+            if (rows.length) {
+              e.preventDefault();
+              takeBack(rows.length - 1);
+            }
+          }
+        }}
+      />
+      <datalist id="fork-ingredients">
+        {known.map((k) => (
+          <option key={k} value={k} />
+        ))}
+      </datalist>
+      <p class="mt-2 text-[13px] text-ink-muted">
+        Return adds it. Paste a whole list at once, or{" "}
+        <button type="button" tabIndex={-1} class="underline decoration-line underline-offset-4 hover:text-ink" onClick={onPaste}>
+          paste it here
+        </button>
+        .
+      </p>
+    </section>
+  );
+}
+
 function splitLine(line: string): Row | null {
   const [head, ...rest] = line.split(",");
   const it = parseIngredient(head);
@@ -109,11 +212,18 @@ function splitLine(line: string): Row | null {
 function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft; originalKey: string; onSaved: (slug: string) => void; onCancel: () => void }) {
   const save = api.useMutation("saveRecipe");
   const known = api.useQuery("ingredients");
-  const [d, setD] = useState<Draft>(start.rows.length ? start : { ...start, rows: [{ amount: "", name: "", prep: "" }] });
+  const [d, setD] = useState<Draft>(start);
   const [paste, setPaste] = useState<string | null>(null);
   const r = useRunner();
   const setRow = (i: number, patch: Partial<Row>) => setD({ ...d, rows: d.rows.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const val = (e: Event) => (e.target as HTMLInputElement).value;
+  // Return in Name or Serves moves on, instead of saving a half-written recipe.
+  const nextOnEnter = (e: KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const fields = [...(e.currentTarget as HTMLElement).closest("form")!.querySelectorAll<HTMLElement>("input, textarea")];
+    fields[fields.indexOf(e.currentTarget as HTMLElement) + 1]?.focus();
+  };
   return (
     <form
       class="flex flex-col gap-6"
@@ -127,42 +237,19 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
     >
       <div class="grid grid-cols-[1fr_6rem] gap-3">
         <Field label="Name">
-          <Input placeholder="Grandma's lasagna" value={d.title} onInput={(e: any) => setD({ ...d, title: val(e) })} />
+          <Input autoFocus={!d.title} placeholder="Grandma's lasagna" value={d.title} enterKeyHint="next" onKeyDown={nextOnEnter} onInput={(e: any) => setD({ ...d, title: val(e) })} />
         </Field>
         <Field label="Serves">
-          <Input type="number" inputMode="numeric" min="0" max="50" placeholder="4" value={d.servings} onInput={(e: any) => setD({ ...d, servings: val(e) })} />
+          <Input type="number" inputMode="numeric" min="0" max="50" placeholder="4" value={d.servings} enterKeyHint="next" onKeyDown={nextOnEnter} onInput={(e: any) => setD({ ...d, servings: val(e) })} />
         </Field>
       </div>
 
-      <section>
-        <p class="mb-2 text-[15px] font-medium text-ink">Ingredients</p>
-        <datalist id="fork-ingredients">
-          {(known ?? []).map((k) => (
-            <option key={k.key} value={k.name} />
-          ))}
-        </datalist>
-        <ul class="flex flex-col">
-          {d.rows.map((row, i) => (
-            // Phones: amount, name and remove on one line, prep under them. From 768px: one line.
-            <li key={i} class="grid grid-cols-[5.5rem_1fr_2.75rem] gap-2 border-b border-line py-3 first:pt-0 md:grid-cols-[6rem_1fr_1fr_2.75rem]">
-              <Input aria-label="Amount" placeholder="2 lb" value={row.amount} onInput={(e: any) => setRow(i, { amount: val(e) })} />
-              <Input aria-label="Ingredient" list="fork-ingredients" placeholder="Chicken thighs" value={row.name} onInput={(e: any) => setRow(i, { name: val(e) })} />
-              <Input aria-label="Prep" class="col-span-2 row-start-2 md:col-span-1 md:row-start-auto" placeholder="Prep, like diced" value={row.prep} onInput={(e: any) => setRow(i, { prep: val(e) })} />
-              <Button type="button" variant="ghost" class="size-12 px-0 md:col-start-4 md:row-start-1" aria-label="Remove ingredient" onClick={() => setD({ ...d, rows: d.rows.filter((_, j) => j !== i) })}>
-                <Icon name="close" size={18} />
-              </Button>
-            </li>
-          ))}
-        </ul>
-        <div class="mt-2 flex gap-1">
-          <Button type="button" variant="ghost" size="sm" class="-ml-3" onClick={() => setD({ ...d, rows: [...d.rows, { amount: "", name: "", prep: "" }] })}>
-            + Add ingredient
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setPaste("")}>
-            Paste a list
-          </Button>
-        </div>
-      </section>
+      <IngredientEntry
+        rows={d.rows.filter((x) => x.name.trim())}
+        known={(known ?? []).map((k) => k.name)}
+        onChange={(rows) => setD({ ...d, rows })}
+        onPaste={() => setPaste("")}
+      />
 
       {paste !== null ? (
         <Sheet
@@ -215,10 +302,11 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
 }
 
 export function NewRecipePage() {
+  const title = typeof location !== "undefined" ? new URLSearchParams(location.search).get("title") ?? "" : "";
   return (
     <div>
       <RecipeEditor
-        start={{ title: "", servings: "", notes: "", rows: [] }}
+        start={{ title, servings: "", notes: "", rows: [] }}
         originalKey=""
         onSaved={(slug) => navigate(`/recipe/${slug}`, { replace: true })}
         onCancel={() => navigate("/meals")}

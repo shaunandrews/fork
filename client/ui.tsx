@@ -219,13 +219,26 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 }
 
 /** shadcn InputGroup with a search icon. */
-export function SearchField({ value, onInput, placeholder }: { value: string; onInput: (v: string) => void; placeholder: string }) {
+export function SearchField({ value, onInput, placeholder, onEnter }: { value: string; onInput: (v: string) => void; placeholder: string; onEnter?: () => void }) {
   return (
     <InputGroup data-component="SearchField" className="h-12 rounded-xl border-transparent bg-surface">
       <InputGroupAddon className="pl-4 text-ink-muted">
         <Icon name="search" size={18} />
       </InputGroupAddon>
-      <InputGroupInput type="search" className="text-[17px]" placeholder={placeholder} value={value} onInput={(e: any) => onInput(e.target.value)} />
+      <InputGroupInput
+        type="search"
+        enterKeyHint={onEnter ? "go" : "search"}
+        className="text-[17px]"
+        placeholder={placeholder}
+        value={value}
+        onInput={(e: any) => onInput(e.target.value)}
+        onKeyDown={(e: any) => {
+          if (e.key === "Enter" && onEnter) {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
+      />
     </InputGroup>
   );
 }
