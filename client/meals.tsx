@@ -104,7 +104,6 @@ const splitLine = (line: string): Row | null => parseLine(line);
 
 function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft; originalKey: string; onSaved: (slug: string) => void; onCancel: () => void }) {
   const save = api.useMutation("saveRecipe");
-  const known = api.useQuery("ingredients");
   const [d, setD] = useState<Draft>(start);
   const r = useRunner();
   const val = (e: Event) => (e.target as HTMLInputElement).value;
@@ -137,7 +136,6 @@ function RecipeEditor({ start, originalKey, onSaved, onCancel }: { start: Draft;
 
       <IngredientEntry
         lines={d.rows.filter((x) => x.name.trim()).map(lineText)}
-        known={(known ?? []).map((k) => k.name)}
         onChange={(lines) => setD({ ...d, rows: lines.map((l) => parseLine(l)).filter((x): x is Row => x !== null) })}
       />
 

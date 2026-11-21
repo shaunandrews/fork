@@ -530,14 +530,12 @@ export function IngredientList({ items, onEdit, onRemove }: { items: IngredientL
 export function IngredientEntry({
   lines,
   onChange,
-  known = [],
   label = "Ingredients",
   hint = "Return adds it. Paste a whole list to add it all at once.",
   autoFocus,
 }: {
   lines: string[];
   onChange: (lines: string[]) => void;
-  known?: string[];
   label?: string;
   hint?: string;
   autoFocus?: boolean;
@@ -567,10 +565,8 @@ export function IngredientEntry({
       <UIInput
         id={id}
         autoFocus={autoFocus}
-        list={known.length ? `${id}-known` : undefined}
         autoComplete="off"
         enterKeyHint="enter"
-        className="[&::-webkit-calendar-picker-indicator]:hidden"
         placeholder={lines.length ? "Add another" : "2 lb chicken thighs, diced"}
         value={text}
         onInput={(e: any) => setText(e.target.value)}
@@ -592,13 +588,6 @@ export function IngredientEntry({
           }
         }}
       />
-      {known.length ? (
-        <datalist id={`${id}-known`}>
-          {known.map((k) => (
-            <option key={k} value={k} />
-          ))}
-        </datalist>
-      ) : null}
       {hint ? <p class="text-[13px] text-ink-muted">{hint}</p> : null}
     </div>
   );
