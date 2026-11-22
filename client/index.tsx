@@ -149,6 +149,7 @@ import {
   SearchField,
   Thumb,
   Icon,
+  QRCode,
   SectionHeading,
   Confirm,
   PersonRow,
@@ -1275,6 +1276,7 @@ export function FamilyPage() {
   const [name, setName] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const r = useRunner();
   if (me === undefined || !me.family) return <Loading />;
   const link = `${location.origin}/join/${me.family.inviteCode}`;
@@ -1301,10 +1303,25 @@ export function FamilyPage() {
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
-        {me.family.isOwner ? (
-          <Button type="button" variant="ghost" size="sm" class="-ml-3 mt-2" onClick={() => setConfirmReset(true)}>
-            Make a new link
+        <div class="-ml-3 mt-2 flex flex-wrap gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setShowQR(true)}>
+            <Icon name="qr" size={18} />
+            Show QR code
           </Button>
+          {me.family.isOwner ? (
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmReset(true)}>
+              Make a new link
+            </Button>
+          ) : null}
+        </div>
+        {showQR ? (
+          // Hold your screen up: they scan it with their camera and land on the join page.
+          <Sheet title={`Join ${me.family.name}`} subtitle="Scan with your phone's camera" onClose={() => setShowQR(false)}>
+            <div class="flex flex-col items-center gap-4 py-4">
+              <QRCode text={link} size={260} label={`QR code for the invite link to ${me.family.name}`} />
+              <p class="max-w-[18rem] text-center text-[15px] text-ink-muted">It opens the invite. They sign in and they're in.</p>
+            </div>
+          </Sheet>
         ) : null}
         {confirmReset ? (
           <Confirm

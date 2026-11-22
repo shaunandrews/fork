@@ -7,6 +7,7 @@
 //   Organisms  DayPlan, AisleGroup, Sheet (shadcn Drawer + Dialog), Confirm (shadcn AlertDialog)
 //   Templates  client/layout.tsx
 import { Link } from "@spacefast/zero/client";
+import qrcode from "qrcode-generator";
 import { cloneElement, isValidElement } from "preact";
 import { useEffect, useId, useState } from "preact/hooks";
 import {
@@ -184,6 +185,23 @@ export function Thumb({ title, photo, size = "md" }: { title: string; photo?: st
   );
 }
 
+/** A QR code for `text` (an invite link): dark squares on a white card, so phones can scan it in dark mode too. */
+export function QRCode({ text, size = 240, label }: { text: string; size?: number; label: string }) {
+  const qr = qrcode(0, "M");
+  qr.addData(text);
+  qr.make();
+  const n = qr.getModuleCount();
+  let d = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+  return (
+    <div class="inline-block rounded-3xl bg-white p-5 shadow-[0_1px_1px_rgba(0,0,0,.08),0_3px_8px_rgba(0,0,0,.10)]" data-component="QRCode">
+      <svg width={size} height={size} viewBox={`0 0 ${n} ${n}`} shape-rendering="crispEdges" role="img" aria-label={label}>
+        <path d={d} fill="#151514" />
+      </svg>
+    </div>
+  );
+}
+
 const ICONS: Record<string, string> = {
   week: "M4 7.5h16M8 3.5v3M16 3.5v3M5.5 5.5h13a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z",
   meals: "M7 3.5v17M4.5 3.5v5a2.5 2.5 0 0 0 5 0v-5M16.5 20.5v-17c-2 1-3.5 3.5-3.5 7 0 2 1 3 3.5 3",
@@ -196,6 +214,7 @@ const ICONS: Record<string, string> = {
   close: "M6.5 6.5l11 11M17.5 6.5l-11 11",
   camera: "M4 8.5a1.5 1.5 0 0 1 1.5-1.5h2l1.5-2h6l1.5 2h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5ZM12 16a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z",
   check: "M5 12.5 10 17l9-10",
+  qr: "M4.5 4.5h5v5h-5ZM14.5 4.5h5v5h-5ZM4.5 14.5h5v5h-5ZM14.5 14.5h2v2h-2ZM17.5 17.5h2v2h-2ZM14.5 18.5v1M18.5 14.5h1",
   search: "M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13ZM15.5 15.5 20 20",
   chef: "M7 14.5v5h10v-5M7 14.5a4 4 0 0 1-.5-7.9 5.5 5.5 0 0 1 11 0 4 4 0 0 1-.5 7.9ZM7 17h10",
 };
