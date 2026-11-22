@@ -1,7 +1,7 @@
 // The fridge's Preact pieces: the magnet tab bar, resin card and dome images, the progressive blur
 // under the bar, and the styles they need (DESIGN.md → Fridge).
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import { hasWebGL, onTheme } from "./kit";
+import { hasWebGL, magnetTextImage, onTheme } from "./kit";
 import { TabsEngine } from "./tabs";
 import { onReveal, splashUp } from "./splash";
 import { CARD_MARGIN, CARD_RADIUS, CARD_W, DOME_MARGIN, DOME_R, resinCard, resinDome } from "./resin";
@@ -23,6 +23,7 @@ if (typeof document !== "undefined" && !document.getElementById("fork-fridge")) 
 :root { --door-top: #f7f8f8; --door-mid: #f1f2f3; --door-low: #e9eaec; --door-sheen: rgba(255,255,255,.85); --door-sheen2: rgba(255,255,255,.5); }
 @media (prefers-color-scheme: dark) { :root { --door-top: #232527; --door-mid: #1c1e20; --door-low: #17191a; --door-sheen: rgba(255,255,255,.06); --door-sheen2: rgba(255,255,255,.035); } }
 /* The door: enamel with two soft vertical sheen bands. Fixed, so it doesn't scroll with the page. */
+body:has(.fridge-door) { background: var(--door-mid); }
 .fridge-door {
   background:
     linear-gradient(105deg, transparent 0 22%, var(--door-sheen) 30%, transparent 40%),
@@ -168,18 +169,19 @@ function useThemeTick() {
 
 /**
  * A photo as a resin card magnet, `aspect` (w/h) wide. Shows the flat photo until the render is ready.
+ * `frost` blurs and dims the lower part of the print, for words laid over it.
  * `children` sit over the card inside its safe area (clear of the curved rim): use for the title and actions.
  */
-export function ResinCard({ src, aspect, flat, class: cls = "", children }: { src: string; aspect: number; flat: any; class?: string; children?: any }) {
+export function ResinCard({ src, aspect, flat, frost = false, class: cls = "", children }: { src: string; aspect: number; flat: any; frost?: boolean; class?: string; children?: any }) {
   const [ref, w] = useWidth();
   const [url, setUrl] = useState<string | null>(null);
   const theme = useThemeTick();
   useEffect(() => {
     if (!w || !hasWebGL()) return;
     let live = true;
-    resinCard(src, w, aspect).then((u) => live && setUrl(u), () => {});
+    resinCard(src, w, aspect, frost).then((u) => live && setUrl(u), () => {});
     return () => { live = false; };
-  }, [src, w, aspect, theme]);
+  }, [src, w, aspect, frost, theme]);
   const m = CARD_MARGIN / CARD_W, mh = (CARD_MARGIN / CARD_W) * aspect;
   return (
     <div ref={ref} class={`resin ${url ? "ready" : ""} ${cls}`} style={{ aspectRatio: String(aspect) }} data-component="ResinCard">
@@ -205,6 +207,37 @@ export function ResinDome({ src, size, flat }: { src: string; size: number; flat
     <span class={`resin block shrink-0 ${url ? "ready" : ""}`} style={{ width: `${size}px`, height: `${size}px` }} data-component="ResinDome">
       <span class="resin-flat block overflow-hidden rounded-full">{flat}</span>
       {url ? <img class="resin-img" src={url} alt="" style={{ left: `${-m * 100}%`, top: `${-m * 100}%`, width: `${(1 + 2 * m) * 100}%` }} /> : null}
+    </span>
+  );
+}
+
+// ---------- magnet words (brand, headlines, section labels) ----------
+/**
+ * Words spelled in letter magnets, `lineH` px of letter per line. Never for meal names. `lines` breaks the
+ * words onto separate rows; `label` is what screen readers hear (defaults to the words). Shows the words as
+ * plain bold type until the render is ready, and for good without WebGL.
+ */
+export function MagnetText({ lines, lineH, label, class: cls = "" }: { lines: string[]; lineH: number; label?: string; class?: string }) {
+  const [img, setImg] = useState<{ url: string; w: number; h: number; pad: number } | null>(null);
+  const theme = useThemeTick();
+  const key = lines.join("\n");
+  useEffect(() => {
+    if (!hasWebGL()) return;
+    let live = true;
+    magnetTextImage(lines, lineH).then((r) => live && setImg(r), () => {});
+    return () => { live = false; };
+  }, [key, lineH, theme]);
+  const name = label ?? lines.join(" ");
+  if (!img)
+    return (
+      <span class={`inline-block font-display font-black uppercase leading-[1.32] tracking-[-0.01em] ${cls}`} style={{ fontSize: `${lineH * 1.05}px` }} aria-label={name}>
+        {lines.map((l, i) => <span key={i} class="block" aria-hidden="true">{l}</span>)}
+      </span>
+    );
+  return (
+    // Shrinks to fit a narrow column, keeping its shape.
+    <span role="img" aria-label={name} class={`relative inline-block max-w-full align-top ${cls}`} style={{ width: `${img.w - 2 * img.pad}px`, aspectRatio: `${img.w - 2 * img.pad} / ${img.h - 2 * img.pad}` }} data-component="MagnetText">
+      <img src={img.url} alt="" class="pointer-events-none absolute max-w-none select-none" style={{ left: `${(-img.pad / (img.w - 2 * img.pad)) * 100}%`, top: `${(-img.pad / (img.h - 2 * img.pad)) * 100}%`, width: `${(img.w / (img.w - 2 * img.pad)) * 100}%` }} />
     </span>
   );
 }

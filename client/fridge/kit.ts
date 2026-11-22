@@ -73,7 +73,9 @@ export function letterMesh(font: any, ch: string, color: string, size: number) {
   const g = new TextGeometry(ch, { font, size, depth: size * 0.18, curveSegments: 10, bevelEnabled: true, bevelThickness: size * 0.07, bevelSize: size * 0.05, bevelOffset: -size * 0.012, bevelSegments: 7 });
   g.computeBoundingBox();
   const bb = g.boundingBox!;
-  g.translate(-(bb.max.x + bb.min.x) / 2, -(bb.max.y + bb.min.y) / 2, -bb.min.z + 0.002);
+  // Centre letters on their middle; punctuation keeps its place on the baseline (a full stop sits low, an apostrophe high).
+  const cy = /[A-Z0-9?!&]/.test(ch) ? (bb.max.y + bb.min.y) / 2 : size * 0.36;
+  g.translate(-(bb.max.x + bb.min.x) / 2, -cy, -bb.min.z + 0.002);
   const mesh = new THREE.Mesh(g, plastic(color, size));
   mesh.castShadow = true;
   mesh.receiveShadow = true;

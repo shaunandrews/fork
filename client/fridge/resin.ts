@@ -102,14 +102,14 @@ export const DOME_R = 1, DOME_MARGIN = 0.2;
 
 const cache = new Map<string, Promise<string>>();
 
-/** A resin card for a photo, `cssW` px wide with aspect w/h. Resolves to a PNG data URL. */
-export function resinCard(url: string, cssW: number, aspect: number) {
+/** A resin card for a photo, `cssW` px wide with aspect w/h; `frost` blurs the lower part of the print for words. Resolves to a PNG data URL. */
+export function resinCard(url: string, cssW: number, aspect: number, frost = true) {
   const bucket = Math.ceil(cssW / 80) * 80;
-  const key = `card|${url}|${aspect.toFixed(3)}|${bucket}|${isDark()}`;
+  const key = `card|${url}|${aspect.toFixed(3)}|${bucket}|${frost}|${isDark()}`;
   if (!cache.has(key)) {
     const w = CARD_W, h = CARD_W / aspect, m = CARD_MARGIN;
     const pxW = Math.round(bucket * (w + 2 * m) / w), pxH = Math.round(pxW * (h + 2 * m) / (w + 2 * m));
-    cache.set(key, imgP(url).then((img) => renderOffscreen(() => cardObject(printCanvas(img, 1000, Math.round(1000 / aspect), true), w, h, CARD_RADIUS), pxW, pxH, w + 2 * m)));
+    cache.set(key, imgP(url).then((img) => renderOffscreen(() => cardObject(printCanvas(img, 1000, Math.round(1000 / aspect), frost), w, h, CARD_RADIUS), pxW, pxH, w + 2 * m)));
     cache.get(key)!.catch(() => cache.delete(key));
   }
   return cache.get(key)!;

@@ -35,7 +35,7 @@ import { Toggle } from "./components/ui/toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
 import { MealImage, caption, displayMd, photoSrc, tintFor } from "./layout";
-import { ResinDome } from "./fridge/ui";
+import { ResinCard, ResinDome } from "./fridge/ui";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -273,14 +273,16 @@ export function MealTile({
 }) {
   const body = (
     <>
-      <div class="relative">
-        <MealImage id={photo ?? null} title={title} sizes="(min-width: 1024px) 270px, 50vw" widths={[400, 600]} class="aspect-[4/3] w-full rounded-[12px] transition-opacity group-hover:opacity-85" />
-        {tag ? (
-          <span class="absolute left-3 top-3">
-            <Tag>{tag}</Tag>
-          </span>
-        ) : null}
-      </div>
+      {photo ? (
+        <ResinCard src={photoSrc(photo, 800)} aspect={4 / 3} class="transition-transform group-hover:-translate-y-0.5" flat={<MealImage id={photo} title={title} sizes="(min-width: 1024px) 270px, 50vw" widths={[400, 600]} class="h-full w-full" />}>
+          {tag ? <span class="absolute left-[9%] top-[9%]"><Tag>{tag}</Tag></span> : null}
+        </ResinCard>
+      ) : (
+        <div class="relative">
+          <MealImage id={null} title={title} sizes="(min-width: 1024px) 270px, 50vw" widths={[400, 600]} class="aspect-[4/3] w-full rounded-[16px] shadow-[0_1px_1px_rgba(0,0,0,.08),0_3px_8px_rgba(0,0,0,.10)] transition-transform group-hover:-translate-y-0.5" />
+          {tag ? <span class="absolute left-3 top-3"><Tag>{tag}</Tag></span> : null}
+        </div>
+      )}
       {eyebrow ? <p class={cx("mt-3", caption)}>{eyebrow}</p> : null}
       {showTitle && photo ? <p class={cx(eyebrow ? "mt-0.5" : "mt-3", "text-[17px] font-semibold leading-snug md:text-[20px]")}>{title}</p> : null}
       {meta ? <p class={cx(eyebrow || (showTitle && photo) ? "mt-0.5" : "mt-3", "line-clamp-2 text-[15px] text-ink-muted")}>{meta}</p> : null}

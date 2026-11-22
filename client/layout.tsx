@@ -2,9 +2,9 @@
 // Every screen renders inside one of: MarketingTemplate, AuthTemplate,
 // AppFrame + AppPage, or AppFrame + DetailTemplate.
 import { createContext } from "preact";
-import { useContext, useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Link, navigate, useLocation } from "@spacefast/zero/client";
-import { MagnetNav, ProgressiveBlur } from "./fridge/ui";
+import { MagnetNav, MagnetText, ProgressiveBlur, ResinCard } from "./fridge/ui";
 import { hideSplash } from "./fridge/splash";
 import type { TabsEngine } from "./fridge/tabs";
 import { DevBadge } from "./dev-badge";
@@ -43,8 +43,8 @@ export const PaneShowing = createContext(true);
 
 export function Brand() {
   return (
-    <Link to="/" class="font-display text-[28px] font-bold leading-none tracking-[-0.02em] text-ink" data-component="Brand">
-      Fork
+    <Link to="/" class="inline-flex items-center" aria-label="Fork" data-component="Brand">
+      <MagnetText lines={["FORK"]} lineH={26} label="Fork" />
     </Link>
   );
 }
@@ -118,7 +118,7 @@ export function MarketingTemplate({ nav, children }: { nav: any; children: any }
   usePageTitle();
   useEffect(() => void hideSplash(), []);
   return (
-    <div class="min-h-screen bg-canvas font-sans text-ink" data-component="MarketingTemplate">
+    <div class="fridge-door min-h-screen overflow-x-clip font-sans text-ink" data-component="MarketingTemplate">
       <SkipLink />
       <header class={`${container} flex h-16 items-center justify-between`}>
         <Brand />
@@ -148,7 +148,7 @@ export function AuthTemplate({ title, children }: { title?: string; children: an
   usePageTitle(title);
   useEffect(() => void hideSplash(), []);
   return (
-    <div class="min-h-screen bg-canvas font-sans text-ink lg:grid lg:grid-cols-2" data-component="AuthTemplate">
+    <div class="fridge-door min-h-screen overflow-x-clip font-sans text-ink lg:grid lg:grid-cols-2" data-component="AuthTemplate">
       <SkipLink />
       <div class="flex min-h-screen flex-col px-5 md:px-8 lg:px-16">
         <header class="flex h-16 items-center">
@@ -159,14 +159,11 @@ export function AuthTemplate({ title, children }: { title?: string; children: an
         </main>
         <DevBadge />
       </div>
-      <div class="sticky top-0 hidden h-screen lg:block">
-        <img
-          src={photo(AUTH_PHOTO, 1400)}
-          srcSet={`${photo(AUTH_PHOTO, 900)} 900w, ${photo(AUTH_PHOTO, 1400)} 1400w`}
-          sizes="50vw"
-          alt=""
-          class="h-full w-full bg-surface-strong object-cover"
-        />
+      {/* The photo as a resin magnet on the door. */}
+      <div class="sticky top-0 hidden h-screen items-center p-12 lg:flex">
+        <div class="w-full">
+          <ResinCard src={photo(AUTH_PHOTO, 1400)} aspect={4 / 5} flat={<img src={photo(AUTH_PHOTO, 1400)} alt="" class="h-full w-full object-cover" />} />
+        </div>
       </div>
     </div>
   );
@@ -480,7 +477,7 @@ export function DetailTemplate({
   usePageTitle(title);
   return (
     <article data-component="DetailTemplate">
-      <div class="md:mx-auto md:mt-6 md:max-w-[1136px] md:px-8">
+      <div class="mx-auto max-w-[1136px] px-5 pt-3 md:px-8 md:pt-6">
         <PhotoHero image={image ?? null} title={title} meta={meta} topLeft={<BackPill to={back.to} text={back.text} />} topRight={photoAction} />
       </div>
       <div class={container}>
@@ -493,9 +490,25 @@ export function DetailTemplate({
   );
 }
 
+/** True while the media query matches. */
+export function useMedia(q: string) {
+  const [on, setOn] = useState(() => typeof matchMedia !== "undefined" && matchMedia(q).matches);
+  useEffect(() => {
+    const m = matchMedia(q);
+    const f = () => setOn(m.matches);
+    m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, [q]);
+  return on;
+}
+
+/** A plain magnet tile (no photo): the meal's tint, rounded like a resin card, sitting on the door. */
+const tileShadow = "shadow-[0_1px_1px_rgba(0,0,0,.08),0_3px_8px_rgba(0,0,0,.10)]";
+
 /**
- * A meal's photo, edge to edge on phones, with its name over it. Used by the Week's Tonight
- * card and by recipe and idea pages. No photo: the meal's tint, with the name in ink.
+ * A meal shown big, as a resin magnet on the door: its photo sealed under resin, with its name, a line
+ * about it and actions laid over the card's safe area (clear of the curved rim). Used by the Week's
+ * Tonight card, recipe and idea pages, and the landing page. No photo: a tinted tile with the name in ink.
  */
 export function PhotoHero({
   image,
@@ -508,6 +521,7 @@ export function PhotoHero({
   onOpen,
   openLabel,
   tall,
+  heading = true,
 }: {
   image: string | null;
   title: string;
@@ -518,33 +532,41 @@ export function PhotoHero({
   actions?: any;
   onOpen?: () => void;
   openLabel?: string;
-  /** 4:5 on phones even without a photo (the Tonight card). */
+  /** Portrait on phones (the Tonight card). */
   tall?: boolean;
+  /** The title is the page's heading (h1). Off for cards inside a page. */
+  heading?: boolean;
 }) {
-  const shape = image || tall ? "aspect-[4/5] sm:aspect-[16/9]" : "aspect-[4/3] sm:aspect-[21/9]";
-  const pic = <MealImage id={image} title={title} showTitle={false} eager sizes="(min-width: 1200px) 1136px, 100vw" widths={[800, 1280, 1600]} class={`w-full ${shape}`} />;
-  return (
-    <section class="relative overflow-hidden md:rounded-3xl" data-component="PhotoHero">
-      {onOpen ? (
-        <button type="button" class="block w-full" onClick={onOpen} aria-label={openLabel ?? title}>
-          {pic}
-        </button>
-      ) : (
-        pic
-      )}
-      {image ? <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/25" /> : null}
+  const wide = useMedia("(min-width: 768px)");
+  const aspect = tall ? (wide ? 4 / 3 : 4 / 5) : wide ? 16 / 9 : 4 / 3;
+  const H = heading ? "h1" : "h2";
+  const ink = image ? "text-white" : "text-ink";
+  const overlay = (
+    <>
+      {onOpen ? <button type="button" class="absolute inset-0 rounded-[inherit]" onClick={onOpen} aria-label={openLabel ?? title} /> : null}
       {topLeft || topRight ? (
-        <div class="absolute inset-x-0 top-0 flex items-center justify-between p-4 md:p-6">
-          <span>{topLeft}</span>
-          <span>{topRight}</span>
+        <div class="pointer-events-none absolute inset-x-[7%] top-[6%] flex items-center justify-between">
+          <span class="pointer-events-auto">{topLeft}</span>
+          <span class="pointer-events-auto">{topRight}</span>
         </div>
       ) : null}
-      <div class={`pointer-events-none absolute inset-x-0 bottom-0 p-5 md:p-8 ${image ? "text-white" : "text-ink"}`}>
+      <div class={`pointer-events-none absolute inset-x-[9%] bottom-[9%] ${ink}`}>
         {eyebrow ? <p class={`text-[13px] font-semibold uppercase tracking-[0.08em] ${image ? "text-white/80" : "opacity-70"}`}>{eyebrow}</p> : null}
-        <h1 class="mt-1 text-[clamp(2.25rem,8vw,3.75rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
+        <H class="mt-1 text-[clamp(2rem,7vw,3.25rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</H>
         {meta ? <p class={`mt-2 text-[15px] ${image ? "text-white/85" : "opacity-75"}`}>{meta}</p> : null}
-        {actions ? <div class="pointer-events-auto mt-5 flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div class="pointer-events-auto mt-4 flex flex-wrap gap-2">{actions}</div> : null}
       </div>
+    </>
+  );
+  if (image)
+    return (
+      <ResinCard frost src={photoSrc(image, 1600)} aspect={aspect} flat={<MealImage id={image} title={title} showTitle={false} eager sizes="(min-width: 1200px) 1136px, 100vw" widths={[800, 1280, 1600]} class="h-full w-full" />}>
+        {overlay}
+      </ResinCard>
+    );
+  return (
+    <section class={`relative overflow-hidden rounded-[28px] ${tileShadow} ${tintFor(title)}`} style={{ aspectRatio: String(aspect) }} data-component="PhotoHero">
+      {overlay}
     </section>
   );
 }

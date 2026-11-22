@@ -17,7 +17,7 @@ import type app from "../server/index";
 import { addDays, dayName, shortDate, todayLocal } from "../shared/dates";
 import { PhotoButton, PhotoPicker, photoFor, usePhotos } from "./photos";
 import { showSplash } from "./fridge/splash";
-import { ResinCard } from "./fridge/ui";
+import { MagnetText, ResinCard } from "./fridge/ui";
 import { parseLine } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
 import {
@@ -38,6 +38,7 @@ import {
   usePageTitle,
   PhotoHero,
   photoSrc,
+  useMedia,
 } from "./layout";
 
 export const api = createClient<typeof app>();
@@ -261,6 +262,7 @@ const listPreview = [
 ];
 
 export function Landing({ signedIn }: { signedIn: boolean }) {
+  const wide = useMedia("(min-width: 768px)");
   return (
     <MarketingTemplate
       nav={
@@ -280,11 +282,11 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
         </>
       }
     >
-      {/* Hero: one big line, one action, one big photo. */}
-      <section class="mx-auto max-w-[1200px] md:px-8">
-        <div class="px-5 pb-10 pt-10 md:px-0 md:pb-14 md:pt-20">
-          <h1 class={`max-w-[14ch] ${displayXl}`}>
-            What's for dinner tonight?
+      {/* Hero: the question in letter magnets, one action, the photo as a resin magnet. */}
+      <section class={container}>
+        <div class="pb-10 pt-8 md:pb-14 md:pt-16">
+          <h1>
+            <MagnetText lines={wide ? ["WHAT'S 4 DINNER?"] : ["WHAT'S 4", "DINNER?"]} lineH={wide ? 76 : 52} label="What's for dinner tonight?" />
           </h1>
           <p class="mt-6 max-w-[34rem] text-[17px] leading-relaxed text-ink-muted md:text-[19px]">
             Fork is how your family decides. Everyone suggests, everyone votes,
@@ -299,13 +301,10 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
             </Link>
           </div>
         </div>
-        <MealImage
-          id={HERO}
-          title="A family sharing dinner at the kitchen table"
-          sizes="(min-width: 1200px) 1136px, (min-width: 768px) calc(100vw - 64px), 100vw"
-          widths={[640, 960, 1400, 2000]}
-          class="aspect-[4/5] w-full object-[30%_50%] sm:aspect-[16/9] md:rounded-[20px]"
-          eager
+        <ResinCard
+          src={photoSrc(HERO, 2000)}
+          aspect={wide ? 16 / 9 : 4 / 5}
+          flat={<MealImage id={HERO} title="A family sharing dinner at the kitchen table" sizes="(min-width: 1200px) 1136px, 100vw" widths={[640, 960, 1400, 2000]} class="h-full w-full object-[30%_50%]" eager />}
         />
       </section>
 
@@ -313,27 +312,12 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
       <section class={`${container} mt-20 md:mt-32`}>
         <div class={`${grid12} gap-y-10 md:items-end`}>
           <div class="col-span-4 md:col-span-6">
-            <div class="relative">
-              <MealImage
-                id={tonight.photo}
-                title={tonight.title}
-                sizes="(min-width: 768px) 560px, 100vw"
-                widths={[480, 800, 1200]}
-                class="aspect-[4/3] w-full rounded-[12px]"
-              />
-              <span class="absolute left-4 top-4">
-                <Tag>Picked</Tag>
-              </span>
-            </div>
-            <p class={`mt-5 ${caption}`}>Tonight</p>
-            <h2 class={`mt-1 ${displayLg}`}>{tonight.title}</h2>
-            <p class="mt-2 text-[15px] text-ink-muted">
-              {tonight.chef} is cooking · {tonight.votes} votes
-            </p>
+            <PhotoHero tall heading={false} image={tonight.photo} title={tonight.title} eyebrow="Tonight" meta={`${tonight.chef} is cooking · ${tonight.votes} votes`} topLeft={<Tag>Picked</Tag>} />
           </div>
 
           <div class="col-span-4 md:col-span-5 md:col-start-8">
-            <h3 class={displayMd}>Everyone gets a say</h3>
+            <MagnetText lines={["VOTE"]} lineH={30} />
+            <h3 class={`mt-4 ${displayMd}`}>Everyone gets a say</h3>
             <p class="mt-3 text-[17px] leading-relaxed text-ink-muted">
               Anyone can suggest a dinner for any night. Votes come in from
               every phone at home, and whoever volunteers to cook makes the
@@ -360,7 +344,8 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
       {/* The week ahead. */}
       <section class={`${container} mt-24 md:mt-36`}>
         <div class="max-w-[36rem]">
-          <h2 class={displayLg}>The rest of the week, sorted</h2>
+          <MagnetText lines={["THIS WEEK"]} lineH={30} />
+          <h2 class={`mt-4 ${displayLg}`}>The rest of the week, sorted</h2>
           <p class="mt-3 text-[17px] leading-relaxed text-ink-muted">
             Plan a few nights ahead. Stuck? Fork fills empty nights with family
             dinners you can pick from.
@@ -379,7 +364,8 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
       <section class={`${container} mt-24 md:mt-36`}>
         <div class={`${grid12} gap-y-10`}>
           <div class="col-span-4 md:col-span-5">
-            <h2 class={displayLg}>One list for the whole house</h2>
+            <MagnetText lines={["THE LIST"]} lineH={30} />
+            <h2 class={`mt-4 ${displayLg}`}>One list for the whole house</h2>
             <p class="mt-3 text-[17px] leading-relaxed text-ink-muted">
               Pick a meal and its ingredients land on the shopping list, amounts
               combined and sorted by aisle. Tick things off in the store and
@@ -403,8 +389,8 @@ export function Landing({ signedIn }: { signedIn: boolean }) {
 
       {/* Close. */}
       <section class={`${container} mt-28 md:mt-40`}>
-        <h2 class="max-w-[16ch] font-display text-[clamp(2.5rem,6vw,4rem)] font-bold leading-[1.0] tracking-[-0.025em]">
-          Tonight's dinner, settled in a minute.
+        <h2>
+          <MagnetText lines={["DINNER,", "DECIDED."]} lineH={wide ? 72 : 46} label="Tonight's dinner, settled in a minute." />
         </h2>
         <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
           <Link to="/start" class={buttonClass("primary")}>
@@ -1016,7 +1002,6 @@ function TonightHero({ day, onOpen }: { day: Day; onOpen: () => void }) {
       ? chefLine
       : `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"}, nothing picked yet`
     : "No ideas yet";
-  const wide = useMedia("(min-width: 768px)");
   const action =
     lead && picked && !day.chefName ? (
       <Button type="button" class={pic ? "bg-white text-black hover:bg-white/90" : ""} disabled={r.busy} onClick={() => void r.run(() => chef(day.date, true))}>
@@ -1030,55 +1015,21 @@ function TonightHero({ day, onOpen }: { day: Day; onOpen: () => void }) {
   const title = lead?.title ?? "What's for dinner?";
   return (
     <div data-component="TonightHero">
-      {pic ? (
-        // Tonight's photo as a resin magnet. The words sit in the card's safe area, clear of the curved rim.
-        <ResinCard
-          src={photoSrc(pic.url, 1600)}
-          aspect={wide ? 4 / 3 : 4 / 5}
-          flat={<MealImage id={pic.url} title={title} showTitle={false} eager sizes="(min-width: 768px) 640px, 100vw" widths={[800, 1280]} class="h-full w-full" />}
-        >
-          <button type="button" class="absolute inset-0" onClick={onOpen} aria-label={`Open tonight: ${title}`} />
-          <div class="absolute right-[8%] top-[7%]">
-            <PhotoButton has onClick={() => setChoosing(true)} />
-          </div>
-          <div class="pointer-events-none absolute inset-x-[10%] bottom-[9%] text-white">
-            <p class="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/80">Tonight</p>
-            <h1 class="mt-1 text-[clamp(2rem,7vw,3.25rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
-            <p class="mt-2 text-[15px] text-white/85">{meta}</p>
-            <div class="pointer-events-auto mt-4 flex flex-wrap gap-2">{action}</div>
-          </div>
-        </ResinCard>
-      ) : (
-        <div class="overflow-hidden rounded-[28px]">
-          <PhotoHero
-            tall
-            image={null}
-            title={title}
-            eyebrow="Tonight"
-            meta={meta}
-            onOpen={onOpen}
-            openLabel={`Open tonight: ${lead?.title ?? "no ideas yet"}`}
-            topRight={lead ? <PhotoButton has={false} onClick={() => setChoosing(true)} /> : null}
-            actions={action}
-          />
-        </div>
-      )}
+      <PhotoHero
+        tall
+        image={pic?.url ?? null}
+        title={title}
+        eyebrow="Tonight"
+        meta={meta}
+        onOpen={onOpen}
+        openLabel={`Open tonight: ${lead?.title ?? "no ideas yet"}`}
+        topRight={lead ? <PhotoButton has={!!pic} onClick={() => setChoosing(true)} /> : null}
+        actions={action}
+      />
       {choosing && lead ? <PhotoPicker title={lead.title} current={pic} onClose={() => setChoosing(false)} /> : null}
       <ErrorLine text={r.error} />
     </div>
   );
-}
-
-/** True while the media query matches. */
-function useMedia(q: string) {
-  const [on, setOn] = useState(() => typeof matchMedia !== "undefined" && matchMedia(q).matches);
-  useEffect(() => {
-    const m = matchMedia(q);
-    const f = () => setOn(m.matches);
-    m.addEventListener("change", f);
-    return () => m.removeEventListener("change", f);
-  }, [q]);
-  return on;
 }
 
 /** One upcoming day as a row: the meal's photo, the day, and what's planned. */
