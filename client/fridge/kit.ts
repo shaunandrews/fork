@@ -5,17 +5,17 @@
 //   offscreen one renderer that turns a piece (a resin print) into a transparent image, once
 // See DESIGN.md → Fridge.
 import * as THREE from "three";
-import { TTFLoader } from "three/addons/loaders/TTFLoader.js";
 import { Font } from "three/addons/loaders/FontLoader.js";
+import { MAGNET_FONT } from "./magnet-font";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 export { THREE };
 
-// Archivo Black: the chunky alphabet-magnet shape.
-const FONT_URL = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/archivoblack/ArchivoBlack-Regular.ttf";
-let fontP: Promise<any> | null = null;
-export const loadFont = () => (fontP ??= new Promise((ok, fail) => new TTFLoader().load(FONT_URL, (json: any) => ok(new Font(json)), undefined, fail)));
+// Archivo Black: the chunky alphabet-magnet shape. Bundled (magnet-font.ts, from tools/make-magnet-font.mjs),
+// so opening the app never waits on a CDN or parses a TTF.
+let font: Font | null = null;
+export const loadFont = () => Promise.resolve((font ??= new Font(MAGNET_FONT as any)));
 
 /** The six toy-magnet colours. */
 export const COLORS = ["#e8382a", "#ffbe12", "#1b86f2", "#1fa84a", "#ff7300", "#9246f5"];
