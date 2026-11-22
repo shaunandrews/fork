@@ -42,7 +42,15 @@ Starts its own scenario server on port 4190, seeds it, and screenshots every sce
 node tools/shoot.mjs established member --phone --dark
 ```
 
-Needs Playwright, found in this project or in `~/.cache/pr-screenshots`.
+Needs Playwright, found in this project or in `~/.cache/pr-screenshots`. Chromium runs with software WebGL (SwiftShader) so the 3D magnets render; resin renders are slow there, so a magnet may still show its flat photo in a shot.
+
+## On your phone
+
+```bash
+sh tools/phone.sh
+```
+
+Scenario mode on port 4192 plus a relay on 4193, reachable at `http://<this-mac>.local:4193/dev` on home Wi-Fi or the Mac's Tailscale name.
 
 ## Flows
 

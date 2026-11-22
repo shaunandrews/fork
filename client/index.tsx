@@ -1,5 +1,5 @@
-// Fork's screens. Each URL has its own file in pages/ that renders one of these,
-// so refreshing or opening any link (like /list) loads the right screen.
+// Fork's screens. Each URL has its own file in pages/ that renders one of these, so refreshing or
+// opening any link (like /list) loads the right screen. The four tabs share one page: client/tabs-app.tsx.
 import { useEffect, useState } from "preact/hooks";
 import {
   createClient,
@@ -1403,23 +1403,3 @@ export function MemberRoute({ children }: { children: any }) {
   return <FamilyLayout>{children}</FamilyLayout>;
 }
 
-function SignedInHome() {
-  const me = api.useQuery("me");
-  if (me === undefined)
-    return <AppLoading />;
-  // Signed in without a family: skip the marketing page and go straight to starting one.
-  if (!me.family) return <Redirect to="/start" />;
-  return (
-    <FamilyLayout>
-      <WeekPage />
-    </FamilyLayout>
-  );
-}
-
-export function HomeRoute() {
-  const auth = useUser();
-  if (auth.isLoading)
-    return <AppLoading />;
-  if (!auth.signedIn) return <Landing signedIn={false} />;
-  return <SignedInHome />;
-}

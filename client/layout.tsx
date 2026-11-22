@@ -181,19 +181,13 @@ export function AuthHeading({ title, intro }: { title: string; intro?: any }) {
 
 // ---------- App frame ----------
 
-type Tab = { to: string; label: string; match: RegExp; icon: any };
-
-const icon = (d: string) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d={d} />
-  </svg>
-);
+type Tab = { to: string; label: string; match: RegExp };
 
 const TABS: Tab[] = [
-  { to: "/", label: "Week", match: /^\/$/, icon: icon("M4 7.5h16M8 3.5v3M16 3.5v3M5.5 5.5h13a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z") },
-  { to: "/meals", label: "Meals", match: /^\/(meals|recipe|idea)(\/|$)/, icon: icon("M7 3.5v17M4.5 3.5v5a2.5 2.5 0 0 0 5 0v-5M16.5 20.5v-17c-2 1-3.5 3.5-3.5 7 0 2 1 3 3.5 3") },
-  { to: "/list", label: "List", match: /^\/list$/, icon: icon("M9.5 6.5h10M9.5 12h10M9.5 17.5h10M4.5 6.5l1 1 2-2M4.5 12l1 1 2-2M4.5 17.5l1 1 2-2") },
-  { to: "/family", label: "Family", match: /^\/family$/, icon: icon("M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.3a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.3 2.6 3.5 5.2") },
+  { to: "/", label: "Week", match: /^\/$/ },
+  { to: "/meals", label: "Meals", match: /^\/(meals|recipe|idea)(\/|$)/ },
+  { to: "/list", label: "List", match: /^\/list$/ },
+  { to: "/family", label: "Family", match: /^\/family$/ },
 ];
 
 /**

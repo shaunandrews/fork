@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Fork
-description: Fork is a family dinner planner whose interface steps back so the food and the words carry the page. Large, edge-to-edge food photography and an editorial serif display face do the work; the chrome is white (or near-black at night), hairline-thin, and nearly colorless. Actions are solid ink pills. One accent, Basil green, appears only where something is live or decided — tonight's pick, your vote, a ticked list item. No cards around everything, no emoji as decoration, no gradients. If a screen looks busy, remove chrome before adding anything.
+description: Fork is a family dinner planner set on a fridge door. The surface is white (or graphite) enamel; the things that matter are lit 3D magnets on it, toy letter magnets for the nav and a few words, resin magnets for every meal photo. Type is Geist, chrome is hairline-thin and nearly colorless, actions are solid ink pills, and one accent, Basil green, marks what is live or decided. No emoji as decoration. If a screen looks busy, remove chrome before adding anything.
 
 colors:
   # Names match the Zero runtime's Tailwind tokens (bg-canvas, text-ink, border-line, bg-accent…).
@@ -126,7 +126,7 @@ components:
     typography: "{typography.label}"
   meal-hero:
     aspectRatio: "4 / 5 mobile, 16 / 9 desktop"
-    rounded: "{rounded.none} mobile (full-bleed), {rounded.lg} desktop"
+    rounded: "resin card (see Fridge)"
     titleTypography: "{typography.display-lg}"
   meal-card:
     aspectRatio: "4 / 3"
@@ -232,7 +232,7 @@ Fork's signed-in screens are a fridge door, and the things that matter are magne
 
 ### Semantic
 - **Danger** (`{colors.danger}`): destructive confirmations and inline errors only.
-- **Scrim** (`{colors.scrim}` at 0–55% as a bottom gradient): only where text must sit on a photo. Prefer putting text below the photo instead.
+- **Text on a photo** sits on the resin card's frosted lower print (the same photo blurred and dimmed), never a black scrim.
 
 Dark mode swaps every token via `prefers-color-scheme`; surfaces are tonal near-blacks, never pure #000, and Basil is lightened so it holds 4.5:1.
 
@@ -266,9 +266,9 @@ Dark mode swaps every token via `prefers-color-scheme`; surfaces are tonal near-
 Photography is the brand. Treat it with care.
 
 - **Ratios:** hero 4:5 on phones, 16:9 on desktop; cards 4:3; thumbnails 1:1. Always `object-fit: cover`, always width and height set so nothing shifts.
-- **Edges:** on phones the hero runs full-bleed (no radius, no side margin). Everywhere else images take `{rounded.md}`; thumbnails `{rounded.sm}`.
+- **Edges:** meal photos are resin magnets: rounded cards (about 10% corner radius) and round domes for thumbnails, always inside the page margins, never full-bleed.
 - **Style:** natural light, real home-cooked plates, overhead or 45°. No hands-in-frame stock clichés, no heavy props, no filters.
-- **Text on images:** avoid it. Put the meal name under the photo. If text must overlay (landing hero), use a bottom scrim gradient to 55%.
+- **Text on images:** only on resin cards with `frost`, inside the safe area (about 10% in from every edge). Grid tiles put the name under the photo.
 - **Photos:** every meal can have one, per family: taken or uploaded on the phone, or picked from image search (Wikimedia Commons and Openverse), then copied into Fork's storage. Tonight's meal fills the top of the Week screen edge to edge with its name over it; recipe and idea pages open on the photo the same way; lists use 64px rounded thumbnails.
 - **No photo yet:** a tinted tile in one of six warm food tones (picked by the meal's name, so it keeps its colour) with the name set bold. Always offer "Add photo" beside it.
 - **Loading:** `{colors.surface-strong}` block at the final ratio, then fade the image in (150ms, opacity only).
@@ -283,7 +283,7 @@ Photography is the brand. Treat it with care.
 - List rows are separated by a 1px `{colors.line}` hairline.
 
 ### Grid
-One grid for every screen. Columns only exist inside the container; outside it, only full-bleed photos.
+One grid for every screen. Columns only exist inside the container; nothing runs outside it.
 
 | | Phone (< 768px) | Tablet (768–1023px) | Desktop (≥ 1024px) |
 | --- | --- | --- | --- |
@@ -311,13 +311,13 @@ Every screen uses one of five templates (`client/layout.tsx`).
 | --- | --- | --- |
 | **Marketing** | Wide | Landing (`/`, signed out) |
 | **Auth** | Narrow, with a photo panel on desktop | Sign in / start (`/start`), join (`/join`, `/join/:code`) |
-| **App frame** | — | Wraps every signed-in screen: top bar, and the tab bar (bottom on phones, inline in the top bar on desktop) |
+| **App frame** | — | Wraps every signed-in screen: the transparent magnet-letter tab bar across the top over a progressive blur (see Fridge). Week, Meals, List and Family are mounted side by side as one page |
 | **App page** | Flow or wide | Week (`/`), Meals (`/meals`, `/meals/ideas`, `/meals/ingredients`), New recipe, Shopping list (`/list`), Family (`/family`) |
-| **Detail** | Flow, with an optional full-bleed hero photo | Recipe (`/recipe/:slug`), Idea (`/idea/:slug`) |
+| **Detail** | Flow, with the meal as a resin card at the top | Recipe (`/recipe/:slug`), Idea (`/idea/:slug`) |
 
 - **App page header:** optional back link, the page title in `display-lg`, an optional one-line description, actions to the right on desktop (below on phones), then an optional sub-nav of text tabs (active is ink with a 2px underline).
-- **Tab bar:** Week · Meals · List · Family. 64px plus the safe area, line icons over `caption` labels.
-- **Detail hero:** a photo full-bleed on phones and `{rounded.lg}` on desktop. Without a photo there is no hero and no type tile; the title carries the page.
+- **Tab bar:** Week · Meals · List · Family as letter magnets, 64px (72px on desktop) plus the safe area, at the top on every size.
+- **Detail hero:** `PhotoHero`, the meal as a resin card with its name in the safe area. Without a photo, a tinted tile with the name in ink.
 
 ## Component system
 
@@ -341,18 +341,18 @@ Flat. There is one shadow, for things that float over content: sheets, menus, th
 
 Every component comes from [shadcn/ui](https://ui.shadcn.com) (Base UI underneath), copied into `client/components/ui/` and tuned to these tokens: pill buttons, 44px tap targets, filled 48px inputs at 17px (no iOS zoom), and shadcn's neutral `accent` hover fills swapped for `muted`, because Basil only means state. `client/ui.tsx` wraps them in Fork's names (Button, Input, Select, Field, Tag, Sheet, Confirm…), and screens use those, never raw elements. To add one: `npx shadcn@latest add <name>` in a scratch project with the `base-nova` style, copy the file in, point `cn` at `../../lib/utils`, take lucide icons off its default export, and wrap it in `client/ui.tsx`. A startup style in `client/index.tsx` maps shadcn's `primary` to ink and `ring` to ink.
 
-- **Page headers stay out of the way.** Top-level tabs (Week, Meals, List, Family) don't repeat their name as a big title; content starts right under the top bar. Sections within a tab are a compact segmented SubNav on the same row as the page's search and its + button. Only screens you drill into show a back link and a title.
+- **Page headers stay out of the way.** Top-level tabs (Week, Meals, List, Family) don't repeat their name as a big title; content starts right under the tab bar. Sections within a tab are a compact segmented SubNav on the same row as the page's search and its + button. Only screens you drill into show a back link and a title.
 - **One component per job.** Ingredients are always entered with IngredientEntry and shown with IngredientList. Every list row is Row (SuggestionRow, ListRow, PersonRow, DayRow and ingredient rows are built on it). Every meal photo with its name over it is PhotoHero. Filters are Chip. Before building something new, check `client/ui.tsx` and `client/layout.tsx` for the piece that already does it, and extend that.
 - **Confirm:** destructive steps (remove a recipe, make a new invite link) ask first in a shadcn AlertDialog: what happens, then Cancel and the danger action.
 - **Buttons:** primary is a solid ink pill (`button-primary`), 48px tall. Secondary is a hairline pill. Tertiary is text only. One primary per screen.
 - **Sheet:** every focused task (suggest a meal, edit ingredients, plan for a day, add or edit an ingredient, paste a list) opens in a sheet, never inline in a list. shadcn Drawer on phones (drag down to dismiss, 20px top corners, swipe handle, safe-area padding), shadcn Dialog from 768px, 520px wide. Title in display type with the day under it, labelled fields, then Cancel (secondary) and one primary, full width side by side on phones. Esc, the scrim, or Cancel closes it.
-- **Meal hero:** full-bleed photo, then the meal name in `display-lg`, then one meta line ("Sam is cooking · 3 votes"), then the primary action.
+- **Meal hero:** `PhotoHero`: the resin card with eyebrow, the meal name, one meta line ("Sam is cooking · 3 votes") and the primary action in its safe area.
 - **Meal card:** photo (4:3) + `title` + one `body-sm` meta line. No border, no fill, no shadow. The whole card is the tap target.
 - **Vote button:** hairline pill with a tabular count. Active state fills Basil Soft with a Basil border and text.
 - **Picked tag:** small solid Basil pill reading "Picked" over the top-left corner of a meal image. The only colored element allowed on a photo.
 - **Shopping list row:** 52px row, circular check on the left, item name, amount right-aligned in `numeral`. Done rows go muted with a strike-through and sink to the bottom of their aisle group. Aisle headings use `caption` in ink-muted, sentence case.
 - **Inputs:** filled `{colors.surface}`, no border, 48px, `{rounded.md}`. Focus shows a 2px ink ring. Labels sit above, visible, in `label`.
-- **Tab bar:** text labels with simple line icons (1.5px stroke), active is ink, inactive is ink-muted. No pill highlight.
+- **Tab bar:** letter magnets; the selected tab full size, the others smaller. Without WebGL, plain words in ink and ink-muted.
 - **Empty states:** one `display-md` line saying what's missing and one button that fixes it. No illustration.
 
 ## Motion
@@ -387,10 +387,10 @@ Every component comes from [shadcn/ui](https://ui.shadcn.com) (Base UI underneat
 
 ## Responsive Behavior
 
-- Mobile-first. Breakpoints: 768px (tablet, grid goes to 12 columns), 1024px (desktop, tab bar moves into the top bar).
+- Mobile-first. Breakpoints: 768px (tablet, grid goes to 12 columns), 1024px (desktop: the tab row stops sliding and sits still, aligned with the content column).
 - No horizontal scroll at 320px. Display sizes use `clamp()` between the phone and desktop values in the scale.
 - Touch targets at least 44px.
-- The bottom tab bar becomes a top nav at 1024px; the pinned action bar becomes an inline button.
+- The tab bar is at the top on every size; the pinned action bar becomes an inline button at 1024px.
 
 ## Implementation Notes
 
