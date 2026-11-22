@@ -1,13 +1,5 @@
 "use client";
-import { FamilyPage, MemberRoute } from "../client/index";
-import { AppPage } from "../client/layout";
+// Week, Meals, List and Family are one page so switching tabs never remounts (client/tabs-app.tsx).
+import TabsApp from "../client/tabs-app";
 
-export default function Family() {
-  return (
-    <MemberRoute>
-      <AppPage title="Family">
-        <FamilyPage />
-      </AppPage>
-    </MemberRoute>
-  );
-}
+export default TabsApp;

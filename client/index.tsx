@@ -187,7 +187,7 @@ function SignInButtons({ returnTo }: { returnTo: string }) {
   );
 }
 
-function Redirect({ to }: { to: string }) {
+export function Redirect({ to }: { to: string }) {
   useEffect(() => {
     navigate(to, { replace: true });
   }, [to]);
@@ -260,7 +260,7 @@ const listPreview = [
   },
 ];
 
-function Landing({ signedIn }: { signedIn: boolean }) {
+export function Landing({ signedIn }: { signedIn: boolean }) {
   return (
     <MarketingTemplate
       nav={
@@ -1126,7 +1126,7 @@ function DaySheet({ day, label, isToday, onClose }: { day: Day; label: string; i
   );
 }
 
-function WeekPage() {
+export function WeekPage() {
   const today = todayLocal();
   const [offset, setOffset] = useState(0);
   const start = addDays(today, offset * 7);
@@ -1410,7 +1410,7 @@ export function FamilyPage() {
 // ---------- layout ----------
 
 /** Loading the signed-in app: the FORK splash covers it (once per visit), with plain text under it. */
-function AppLoading() {
+export function AppLoading() {
   useEffect(() => showSplash(), []);
   return (
     <Shell>

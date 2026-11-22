@@ -1,7 +1,8 @@
 // Fork's grid and page templates. DESIGN.md → Layout describes them.
 // Every screen renders inside one of: MarketingTemplate, AuthTemplate,
 // AppFrame + AppPage, or AppFrame + DetailTemplate.
-import { useEffect, useRef } from "preact/hooks";
+import { createContext } from "preact";
+import { useContext, useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { Link, navigate, useLocation } from "@spacefast/zero/client";
 import { MagnetNav, ProgressiveBlur } from "./fridge/ui";
 import { hideSplash } from "./fridge/splash";
@@ -32,10 +33,13 @@ export const caption = "text-[13px] font-medium text-ink-muted";
 
 /** Tab title: "Recipes · Fork", or just "Fork". */
 export function usePageTitle(title?: string) {
+  const showing = useContext(PaneShowing);
   useEffect(() => {
-    document.title = title ? `${title} · Fork` : "Fork";
-  }, [title]);
+    if (showing) document.title = title ? `${title} · Fork` : "Fork";
+  }, [title, showing]);
 }
+/** False inside a tab pane that's mounted but not the one on screen (see AppFrame `panes`). */
+export const PaneShowing = createContext(true);
 
 export function Brand() {
   return (
@@ -201,7 +205,7 @@ const TABS: Tab[] = [
  * Swipe the page sideways (finger, mouse, or two fingers on a trackpad) to go to the next or previous tab,
  * one at a time; the page moves with the magnets. DESIGN.md → Fridge.
  */
-export function AppFrame({ familyName, children }: { familyName?: string; children: any }) {
+export function AppFrame({ familyName, children, panes }: { familyName?: string; children?: any; panes?: any[] }) {
   const loc = useLocation();
   const active = Math.max(0, TABS.findIndex((t) => t.match.test(loc.pathname)));
   const activeRef = useRef(active);
@@ -211,20 +215,32 @@ export function AppFrame({ familyName, children }: { familyName?: string; childr
   useEffect(() => void hideSplash(), []);
 
   // The page follows the magnets' position: off by (p - active) screens while a swipe or a switch is moving.
+  const track = useRef<HTMLDivElement>(null);
   const onFrame = (p: number) => {
+    if (panes) {
+      // All four tabs are mounted side by side: the row slides with the magnets, real content all the way.
+      const t = track.current;
+      if (t) t.style.transform = `translate3d(${(-p * t.clientWidth).toFixed(1)}px,0,0)`;
+      return;
+    }
     const el = main.current;
     if (!el) return;
     const off = p - activeRef.current;
     el.style.transform = Math.abs(off) < 0.001 ? "" : `translate3d(${(-off * el.clientWidth).toFixed(1)}px,0,0)`;
   };
+  if (TABS[1].match.test(loc.pathname) && /^\/meals(\/(ideas|ingredients))?$/.test(loc.pathname)) lastMeals = loc.pathname;
   const go = (i: number) => {
     if (i === activeRef.current) {
       engine.current?.settle(i);
       return;
     }
-    navigate(TABS[i].to);
+    navigate(i === 1 ? lastMeals : TABS[i].to);
   };
   useTabSwipe(main, engine, () => activeRef.current, TABS.length, go);
+  // Before the magnets exist (or without WebGL) nothing drives the row: put it on the current tab directly.
+  useLayoutEffect(() => {
+    if (panes && track.current && !engine.current) track.current.style.transform = `translate3d(${-active * 100}%,0,0)`;
+  }, [active]);
 
   return (
     <div class="fridge-door min-h-screen font-sans text-ink" data-component="AppFrame">
@@ -236,14 +252,27 @@ export function AppFrame({ familyName, children }: { familyName?: string; childr
           {familyName ? <span class="pointer-events-none absolute right-[max(32px,calc((100vw-1200px)/2+32px))] top-1/2 hidden -translate-y-1/2 text-[15px] text-ink-muted lg:inline">{familyName}</span> : null}
         </div>
       </header>
-      <main id="main" ref={main} class="fork-app overflow-x-clip pb-16 pt-[calc(64px+env(safe-area-inset-top))] lg:pt-[72px]">
-        {children}
-      </main>
+      {panes ? (
+        <main id="main" ref={main} class="fork-app fixed inset-0 overflow-hidden">
+          <div ref={track} class="flex h-full will-change-transform">
+            {panes.map((pane, i) => (
+              <div key={i} class="h-full w-full shrink-0 overflow-y-auto overscroll-contain pb-16 pt-[calc(64px+env(safe-area-inset-top))] lg:pt-[72px]" inert={i !== active} aria-hidden={i !== active}>
+                <PaneShowing.Provider value={i === active}>{pane}</PaneShowing.Provider>
+              </div>
+            ))}
+          </div>
+        </main>
+      ) : (
+        <main id="main" ref={main} class="fork-app overflow-x-clip pb-16 pt-[calc(64px+env(safe-area-inset-top))] lg:pt-[72px]">
+          {children}
+        </main>
+      )}
       <DevBadge />
     </div>
   );
 }
 
+let lastMeals = "/meals";
 const clampN = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 /**
  * Sideways swipes on the page drive the tab magnets. A swipe moves at most one tab from where it started;

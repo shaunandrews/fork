@@ -240,3 +240,48 @@ export const hasWebGL = (() => {
     return v;
   };
 })();
+
+// ---------- magnet words as images (headings, brand, labels) ----------
+const LINE = 1.32, PAD = 0.38; // world units per line, and room around the letters for shadows
+const textCache = new Map<string, Promise<{ url: string; w: number; h: number; pad: number }>>();
+const seedOf = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 97;
+/**
+ * Render lines of letter magnets to one transparent image, `lineH` CSS px per line of letters.
+ * Resolves to the image and its CSS size; `pad` is the shadow room (px) on every side.
+ */
+export function magnetTextImage(lines: string[], lineH: number) {
+  const key = `${lines.join("\n")}|${lineH}|${isDark()}`;
+  if (!textCache.has(key)) {
+    const job = loadFont().then((font) => {
+      let seed = seedOf(lines.join(" "));
+      const rows = lines.map((line) => {
+        const words = line.split(" ").map((w) => { const mw = magnetWord(font, w, 1, seed); seed += w.length; return mw; });
+        const w = words.reduce((a, mw) => a + mw.w, 0) + 0.42 * (words.length - 1);
+        return { words, w };
+      });
+      const maxW = Math.max(...rows.map((r) => r.w));
+      const frameW = maxW + 2 * PAD, frameH = lines.length * LINE - (LINE - 1) + 2 * PAD;
+      const w = Math.round(frameW * lineH), h = Math.round(frameH * lineH);
+      const url = renderOffscreen(() => {
+        const g = new THREE.Group();
+        rows.forEach((r, li) => {
+          let x = -maxW / 2;
+          const y = frameH / 2 - PAD - 0.5 - li * LINE;
+          for (const mw of r.words) {
+            for (const l of mw.letters) {
+              l.mesh.position.set(x + l.cx, y + l.dy, 0);
+              l.mesh.rotation.z = l.tilt;
+              g.add(l.mesh);
+            }
+            x += mw.w + 0.42;
+          }
+        });
+        return g;
+      }, w, h, frameW);
+      return url.then((u) => ({ url: u, w, h, pad: PAD * lineH }));
+    });
+    textCache.set(key, job);
+    job.catch(() => textCache.delete(key));
+  }
+  return textCache.get(key)!;
+}
