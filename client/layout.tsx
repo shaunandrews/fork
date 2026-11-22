@@ -1,8 +1,11 @@
 // Fork's grid and page templates. DESIGN.md → Layout describes them.
 // Every screen renders inside one of: MarketingTemplate, AuthTemplate,
 // AppFrame + AppPage, or AppFrame + DetailTemplate.
-import { useEffect } from "preact/hooks";
-import { Link, useLocation } from "@spacefast/zero/client";
+import { useEffect, useRef } from "preact/hooks";
+import { Link, navigate, useLocation } from "@spacefast/zero/client";
+import { MagnetNav, ProgressiveBlur } from "./fridge/ui";
+import { hideSplash } from "./fridge/splash";
+import type { TabsEngine } from "./fridge/tabs";
 import { DevBadge } from "./dev-badge";
 
 // ---------- grid ----------
@@ -70,6 +73,8 @@ export const photo = (id: string, w: number) => `https://images.unsplash.com/pho
 const photoSet = (id: string, widths: number[]) => widths.map((w) => `${photo(id, w)} ${w}w`).join(", ");
 /** An Unsplash id from the landing page, or a full address (a family's photo, a search pick). */
 const isUrl = (id: string) => /^(https?:)?\/\//.test(id) || id.startsWith("/");
+/** A meal photo's address at about `w` px wide, whether it's an Unsplash id or a full address. */
+export const photoSrc = (id: string, w: number) => (isUrl(id) ? id : photo(id, w));
 
 // Warm food-ish tints for meals without a photo, picked by name so a meal keeps its colour.
 const TINTS = ["bg-[#f3e2cf] text-[#5a3a1c]", "bg-[#e5ecd9] text-[#33421f]", "bg-[#f4d9d2] text-[#5e2a1f]", "bg-[#e9e1f0] text-[#3d2c52]", "bg-[#f6ead0] text-[#574413]", "bg-[#dcebe8] text-[#1f4540]"];
@@ -107,6 +112,7 @@ export function MealImage({ id, title, sizes, widths, class: cls, eager, showTit
 
 export function MarketingTemplate({ nav, children }: { nav: any; children: any }) {
   usePageTitle();
+  useEffect(() => void hideSplash(), []);
   return (
     <div class="min-h-screen bg-canvas font-sans text-ink" data-component="MarketingTemplate">
       <SkipLink />
@@ -136,6 +142,7 @@ const AUTH_PHOTO = "1791318554916-f0c5e627a049";
 /** Narrow form column; on desktop a photo fills the right half. */
 export function AuthTemplate({ title, children }: { title?: string; children: any }) {
   usePageTitle(title);
+  useEffect(() => void hideSplash(), []);
   return (
     <div class="min-h-screen bg-canvas font-sans text-ink lg:grid lg:grid-cols-2" data-component="AuthTemplate">
       <SkipLink />
@@ -188,55 +195,159 @@ const TABS: Tab[] = [
   { to: "/family", label: "Family", match: /^\/family$/, icon: icon("M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.3a3.5 3.5 0 0 1 0 6.4M18 14.8c2 .7 3.3 2.6 3.5 5.2") },
 ];
 
-/** Every signed-in screen: top bar, and the tab bar (bottom on phones, top on desktop). */
+/**
+ * Every signed-in screen sits on the fridge door. The main nav is the tabs as letter magnets across the
+ * top, over the content: a transparent bar with a progressive blur, so the page scrolls underneath it.
+ * Swipe the page sideways (finger, mouse, or two fingers on a trackpad) to go to the next or previous tab,
+ * one at a time; the page moves with the magnets. DESIGN.md → Fridge.
+ */
 export function AppFrame({ familyName, children }: { familyName?: string; children: any }) {
   const loc = useLocation();
+  const active = Math.max(0, TABS.findIndex((t) => t.match.test(loc.pathname)));
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const engine = useRef<TabsEngine | null>(null);
+  const main = useRef<HTMLElement>(null);
+  useEffect(() => void hideSplash(), []);
+
+  // The page follows the magnets' position: off by (p - active) screens while a swipe or a switch is moving.
+  const onFrame = (p: number) => {
+    const el = main.current;
+    if (!el) return;
+    const off = p - activeRef.current;
+    el.style.transform = Math.abs(off) < 0.001 ? "" : `translate3d(${(-off * el.clientWidth).toFixed(1)}px,0,0)`;
+  };
+  const go = (i: number) => {
+    if (i === activeRef.current) {
+      engine.current?.settle(i);
+      return;
+    }
+    navigate(TABS[i].to);
+  };
+  useTabSwipe(main, engine, () => activeRef.current, TABS.length, go);
+
   return (
-    <div class="min-h-screen bg-canvas font-sans text-ink">
+    <div class="fridge-door min-h-screen font-sans text-ink" data-component="AppFrame">
       <SkipLink />
-      <header class="sticky top-0 z-20 bg-canvas" data-component="TopBar">
-        <div class={`${container} flex h-14 items-center justify-between gap-6`}>
-          <div class="flex items-baseline gap-3">
-            <Brand />
-            {familyName ? <span class="hidden text-[15px] text-ink-muted sm:inline lg:hidden">{familyName}</span> : null}
-          </div>
-          <nav class="hidden items-center gap-8 lg:flex" aria-label="Main">
-            {TABS.map((t) => {
-              const on = t.match.test(loc.pathname);
-              return (
-                <Link key={t.to} to={t.to} aria-current={on ? "page" : undefined} class={`text-[15px] font-medium ${on ? "text-ink" : "text-ink-muted hover:text-ink"}`}>
-                  {t.label}
-                </Link>
-              );
-            })}
-          </nav>
-          {familyName ? <span class="hidden text-[15px] text-ink-muted lg:inline">{familyName}</span> : <span class="hidden lg:inline" />}
+      <header class="fixed inset-x-0 top-0 z-20 pt-[env(safe-area-inset-top)]" data-component="TopBar">
+        <ProgressiveBlur />
+        <div class="relative h-16 lg:h-[72px]">
+          <MagnetNav tabs={TABS.map((t) => ({ label: t.label, to: t.to }))} active={active} onPick={go} engineRef={engine} onFrame={onFrame} />
+          {familyName ? <span class="pointer-events-none absolute right-[max(32px,calc((100vw-1200px)/2+32px))] top-1/2 hidden -translate-y-1/2 text-[15px] text-ink-muted lg:inline">{familyName}</span> : null}
         </div>
       </header>
-      <main id="main" class="pb-28 lg:pb-24">
+      <main id="main" ref={main} class="fork-app overflow-x-clip pb-16 pt-[calc(64px+env(safe-area-inset-top))] lg:pt-[72px]">
         {children}
       </main>
       <DevBadge />
-      <nav class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-canvas pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Main" data-component="TabBar">
-        <div class="mx-auto grid h-16 max-w-[640px] grid-cols-4">
-          {TABS.map((t) => {
-            const on = t.match.test(loc.pathname);
-            return (
-              <Link
-                key={t.to}
-                to={t.to}
-                aria-current={on ? "page" : undefined}
-                class={`flex flex-col items-center justify-center gap-1 text-[12px] font-medium ${on ? "text-ink" : "text-ink-muted"}`}
-              >
-                {t.icon}
-                {t.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
+}
+
+const clampN = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+/**
+ * Sideways swipes on the page drive the tab magnets. A swipe moves at most one tab from where it started;
+ * past that it resists. Trackpads: follow the fingers, then snap as soon as the swipe is clear (far enough,
+ * or the deltas start shrinking, which means the fingers lifted) and ignore the rest of that gesture, so the
+ * Mac's scroll momentum doesn't hold the snap back.
+ */
+function useTabSwipe(main: { current: HTMLElement | null }, engine: { current: TabsEngine | null }, active: () => number, n: number, go: (i: number) => void) {
+  useEffect(() => {
+    const el = main.current;
+    if (!el) return;
+    const W = () => el.clientWidth || innerWidth;
+    const band = (raw: number, home: number) => {
+      let v = raw < 0 ? raw * 0.3 : raw > n - 1 ? n - 1 + (raw - n + 1) * 0.3 : raw;
+      if (v > home + 1) v = home + 1 + (v - home - 1) * 0.15;
+      if (v < home - 1) v = home - 1 + (v - home + 1) * 0.15;
+      return v;
+    };
+    const finish = (home: number, p: number, pv: number) => {
+      const d = p - home + clampN(pv, -4, 4) * 0.12;
+      const to = Math.abs(d) > 0.3 ? clampN(home + Math.sign(d), 0, n - 1) : home;
+      engine.current?.settle(to);
+      if (to !== home) go(to);
+    };
+    const skip = (t: EventTarget | null) => !!(t as Element)?.closest?.("input, textarea, select, [contenteditable], [data-noswipe], [role=dialog]");
+
+    // Finger / mouse
+    let st: { x: number; y: number; home: number; p0: number } | null = null, dir: "h" | "v" | null = null, lastX = 0, lastT = 0, pv = 0, p = 0;
+    const down = (e: PointerEvent) => {
+      const eng = engine.current;
+      if (e.button || !eng || skip(e.target)) return;
+      st = { x: e.clientX, y: e.clientY, home: active(), p0: eng.p };
+      dir = null; lastX = e.clientX; lastT = performance.now(); pv = 0; p = eng.p;
+    };
+    const move = (e: PointerEvent) => {
+      if (!st) return;
+      const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (!dir) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) { dir = "h"; el.setPointerCapture(e.pointerId); }
+        else if (Math.abs(dy) > 8) { st = null; return; }
+        else return;
+      }
+      const now = performance.now();
+      const inst = -(e.clientX - lastX) / W() / Math.max(0.008, (now - lastT) / 1000);
+      pv = pv * 0.55 + inst * 0.45;
+      p = band(st.p0 - dx / W(), st.home);
+      lastX = e.clientX; lastT = now;
+      engine.current?.drag(p, pv);
+    };
+    const up = () => {
+      if (st && dir === "h") finish(st.home, p, pv);
+      st = null; dir = null;
+    };
+    // A drag that turned into a swipe shouldn't also click what it started on.
+    const click = (e: MouseEvent) => { if (justSwiped) { e.preventDefault(); e.stopPropagation(); justSwiped = false; } };
+    let justSwiped = false;
+    const upMark = () => { justSwiped = dir === "h"; up(); setTimeout(() => (justSwiped = false), 0); };
+
+    // Trackpad
+    let wheelT = 0, locked = false, prevAbs = 0, shrinking = 0, home = 0, wp = 0, wpv = 0, inGesture = false;
+    const wheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || skip(e.target)) return;
+      const eng = engine.current;
+      if (!eng) return;
+      e.preventDefault();
+      clearTimeout(wheelT);
+      wheelT = window.setTimeout(() => {
+        if (!locked && inGesture) finish(home, wp, wpv);
+        locked = false; inGesture = false; prevAbs = 0; shrinking = 0;
+      }, 140);
+      if (locked) return;
+      if (!inGesture) { inGesture = true; home = active(); wp = eng.p; wpv = 0; prevAbs = 0; shrinking = 0; }
+      const a = Math.abs(e.deltaX);
+      shrinking = a < prevAbs ? shrinking + 1 : 0;
+      prevAbs = a;
+      const d = e.deltaX / W();
+      wp = band(wp + d, home);
+      wpv = wpv * 0.6 + (d / 0.016) * 0.4;
+      eng.drag(wp, wpv);
+      if (Math.abs(wp - home) > 0.22) {
+        locked = true;
+        const to = clampN(home + Math.sign(wp - home), 0, n - 1);
+        eng.settle(to);
+        if (to !== home) go(to);
+      } else if (shrinking >= 3) {
+        locked = true;
+        finish(home, wp, wpv);
+      }
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", upMark);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("click", click, true);
+    el.addEventListener("wheel", wheel, { passive: false });
+    return () => {
+      el.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", upMark);
+      el.removeEventListener("pointercancel", up);
+      el.removeEventListener("click", click, true);
+      el.removeEventListener("wheel", wheel);
+    };
+  }, []);
 }
 
 // ---------- App page ----------

@@ -16,6 +16,8 @@ import {
 import type app from "../server/index";
 import { addDays, dayName, shortDate, todayLocal } from "../shared/dates";
 import { PhotoButton, PhotoPicker, photoFor, usePhotos } from "./photos";
+import { showSplash } from "./fridge/splash";
+import { ResinCard } from "./fridge/ui";
 import { parseLine } from "../shared/ingredients";
 import { RECIPES } from "../shared/recipes";
 import {
@@ -35,6 +37,7 @@ import {
   flow,
   usePageTitle,
   PhotoHero,
+  photoSrc,
 } from "./layout";
 
 export const api = createClient<typeof app>();
@@ -1013,33 +1016,69 @@ function TonightHero({ day, onOpen }: { day: Day; onOpen: () => void }) {
       ? chefLine
       : `${day.suggestions.length} idea${day.suggestions.length === 1 ? "" : "s"}, nothing picked yet`
     : "No ideas yet";
+  const wide = useMedia("(min-width: 768px)");
+  const action =
+    lead && picked && !day.chefName ? (
+      <Button type="button" class={pic ? "bg-white text-black hover:bg-white/90" : ""} disabled={r.busy} onClick={() => void r.run(() => chef(day.date, true))}>
+        I'll cook
+      </Button>
+    ) : (
+      <Button type="button" class={pic ? "bg-white text-black hover:bg-white/90" : ""} onClick={onOpen}>
+        {lead ? (picked ? "See the plan" : "Vote and pick") : "Suggest a meal"}
+      </Button>
+    );
+  const title = lead?.title ?? "What's for dinner?";
   return (
-    <div class="-mx-5 md:mx-0" data-component="TonightHero">
-      <PhotoHero
-        tall
-        image={pic?.url ?? null}
-        title={lead?.title ?? "What's for dinner?"}
-        eyebrow="Tonight"
-        meta={meta}
-        onOpen={onOpen}
-        openLabel={`Open tonight: ${lead?.title ?? "no ideas yet"}`}
-        topRight={lead ? <PhotoButton has={!!pic} onClick={() => setChoosing(true)} /> : null}
-        actions={
-          lead && picked && !day.chefName ? (
-            <Button type="button" class="bg-white text-black hover:bg-white/90" disabled={r.busy} onClick={() => void r.run(() => chef(day.date, true))}>
-              I'll cook
-            </Button>
-          ) : (
-            <Button type="button" class={pic ? "bg-white text-black hover:bg-white/90" : ""} onClick={onOpen}>
-              {lead ? (picked ? "See the plan" : "Vote and pick") : "Suggest a meal"}
-            </Button>
-          )
-        }
-      />
+    <div data-component="TonightHero">
+      {pic ? (
+        // Tonight's photo as a resin magnet. The words sit in the card's safe area, clear of the curved rim.
+        <ResinCard
+          src={photoSrc(pic.url, 1600)}
+          aspect={wide ? 4 / 3 : 4 / 5}
+          flat={<MealImage id={pic.url} title={title} showTitle={false} eager sizes="(min-width: 768px) 640px, 100vw" widths={[800, 1280]} class="h-full w-full" />}
+        >
+          <button type="button" class="absolute inset-0" onClick={onOpen} aria-label={`Open tonight: ${title}`} />
+          <div class="absolute right-[8%] top-[7%]">
+            <PhotoButton has onClick={() => setChoosing(true)} />
+          </div>
+          <div class="pointer-events-none absolute inset-x-[10%] bottom-[9%] text-white">
+            <p class="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/80">Tonight</p>
+            <h1 class="mt-1 text-[clamp(2rem,7vw,3.25rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</h1>
+            <p class="mt-2 text-[15px] text-white/85">{meta}</p>
+            <div class="pointer-events-auto mt-4 flex flex-wrap gap-2">{action}</div>
+          </div>
+        </ResinCard>
+      ) : (
+        <div class="overflow-hidden rounded-[28px]">
+          <PhotoHero
+            tall
+            image={null}
+            title={title}
+            eyebrow="Tonight"
+            meta={meta}
+            onOpen={onOpen}
+            openLabel={`Open tonight: ${lead?.title ?? "no ideas yet"}`}
+            topRight={lead ? <PhotoButton has={false} onClick={() => setChoosing(true)} /> : null}
+            actions={action}
+          />
+        </div>
+      )}
       {choosing && lead ? <PhotoPicker title={lead.title} current={pic} onClose={() => setChoosing(false)} /> : null}
       <ErrorLine text={r.error} />
     </div>
   );
+}
+
+/** True while the media query matches. */
+function useMedia(q: string) {
+  const [on, setOn] = useState(() => typeof matchMedia !== "undefined" && matchMedia(q).matches);
+  useEffect(() => {
+    const m = matchMedia(q);
+    const f = () => setOn(m.matches);
+    m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, [q]);
+  return on;
 }
 
 /** One upcoming day as a row: the meal's photo, the day, and what's planned. */
@@ -1063,7 +1102,7 @@ function DayRow({ day, label, onOpen }: { day: Day; label: string; onOpen: () =>
         lead ? (
           <Thumb title={lead.title} photo={photoFor(photos, lead.title)?.url ?? null} size="lg" />
         ) : (
-          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-dashed border-line text-ink-muted">
+          <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-dashed border-ink-muted/40 text-ink-muted">
             <Icon name="plus" size={20} />
           </span>
         )
@@ -1370,14 +1409,20 @@ export function FamilyPage() {
 
 // ---------- layout ----------
 
+/** Loading the signed-in app: the FORK splash covers it (once per visit), with plain text under it. */
+function AppLoading() {
+  useEffect(() => showSplash(), []);
+  return (
+    <Shell>
+      <Loading />
+    </Shell>
+  );
+}
+
 function FamilyLayout({ children }: { children: any }) {
   const me = api.useQuery("me");
   if (me === undefined)
-    return (
-      <Shell>
-        <Loading />
-      </Shell>
-    );
+    return <AppLoading />;
   if (!me.family) return <Redirect to="/" />;
   return <AppFrame familyName={me.family.name}>{children}</AppFrame>;
 }
@@ -1385,11 +1430,7 @@ function FamilyLayout({ children }: { children: any }) {
 export function MemberRoute({ children }: { children: any }) {
   const auth = useUser();
   if (auth.isLoading)
-    return (
-      <Shell>
-        <Loading />
-      </Shell>
-    );
+    return <AppLoading />;
   if (!auth.signedIn) return <Redirect to="/" />;
   return <FamilyLayout>{children}</FamilyLayout>;
 }
@@ -1397,11 +1438,7 @@ export function MemberRoute({ children }: { children: any }) {
 function SignedInHome() {
   const me = api.useQuery("me");
   if (me === undefined)
-    return (
-      <Shell>
-        <Loading />
-      </Shell>
-    );
+    return <AppLoading />;
   // Signed in without a family: skip the marketing page and go straight to starting one.
   if (!me.family) return <Redirect to="/start" />;
   return (
@@ -1414,11 +1451,7 @@ function SignedInHome() {
 export function HomeRoute() {
   const auth = useUser();
   if (auth.isLoading)
-    return (
-      <Shell>
-        <Loading />
-      </Shell>
-    );
+    return <AppLoading />;
   if (!auth.signedIn) return <Landing signedIn={false} />;
   return <SignedInHome />;
 }

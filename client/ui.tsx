@@ -34,7 +34,8 @@ import { Textarea as UITextarea } from "./components/ui/textarea";
 import { Toggle } from "./components/ui/toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
-import { MealImage, caption, displayMd, tintFor } from "./layout";
+import { MealImage, caption, displayMd, photoSrc, tintFor } from "./layout";
+import { ResinDome } from "./fridge/ui";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -166,11 +167,18 @@ export function CheckCircle({ checked }: { checked: boolean }) {
 }
 
 /** 56px meal thumbnail: the photo, or the meal's initial on a tile. */
+/** A meal's thumbnail: its photo as a round resin magnet, or its initial on the meal's tint. */
 export function Thumb({ title, photo, size = "md" }: { title: string; photo?: string | null; size?: "md" | "lg" }) {
-  const box = size === "lg" ? "h-16 w-16 rounded-2xl text-[24px]" : "h-14 w-14 rounded-xl text-[22px]";
-  if (photo) return <MealImage id={photo} title={title} sizes="64px" widths={[128]} class={`${box} shrink-0`} />;
+  const px = size === "lg" ? 64 : 56;
+  const box = size === "lg" ? "h-16 w-16 text-[24px]" : "h-14 w-14 text-[22px]";
+  if (photo)
+    return (
+      <span data-component="Thumb" class="shrink-0">
+        <ResinDome src={photoSrc(photo, 256)} size={px} flat={<MealImage id={photo} title={title} sizes={`${px}px`} widths={[128]} class={`${box} block`} />} />
+      </span>
+    );
   return (
-    <span data-component="Thumb" class={`flex shrink-0 items-center justify-center font-bold ${box} ${tintFor(title)}`} aria-hidden="true">
+    <span data-component="Thumb" class={`flex shrink-0 items-center justify-center rounded-full font-bold ${box} ${tintFor(title)}`} aria-hidden="true">
       {title.trim()[0]?.toUpperCase() ?? "?"}
     </span>
   );

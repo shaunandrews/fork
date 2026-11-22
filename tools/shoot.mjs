@@ -183,7 +183,8 @@ async function doStep(page, persona, step) {
 const { chromium } = loadPlaywright();
 console.log("Starting scenario server…");
 const { child, capabilityUrl } = await startServer();
-const browser = await chromium.launch({ headless: true });
+// Software WebGL so the fridge magnets render in headless screenshots.
+const browser = await chromium.launch({ headless: true, args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const shots = {};
 const problems = [];
 try {

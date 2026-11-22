@@ -194,11 +194,22 @@ Fork is a dinner planner for one household. People open it on a phone, usually i
 
 The page is built from three things only: **photography**, **type**, and **whitespace**. Everything else (borders, fills, color) is used at the minimum needed to make a control legible.
 
-- **Photos lead.** Every meal is shown as an image first. On a phone, tonight's meal is a full-bleed 4:5 photo with its name set large below it.
+- **Photos lead.** Every meal is shown as an image first: tonight's meal as a big resin card magnet, every other meal as a round resin magnet (see Fridge).
 - **Type is the second voice.** One family, Geist, everywhere. Meal names and headings are set bold (700) and tight (about -0.04em), big enough to sit over a photo. Everything functional (buttons, lists, amounts) is Geist at regular or medium weight.
-- **Chrome is nearly colorless.** White or near-black canvas, ink text, hairline rules. Primary actions are solid ink pills, not a brand color.
+- **Chrome is nearly colorless.** The surface is a white (or graphite) fridge door, ink text, hairline rules. Primary actions are solid ink pills, not a brand color. The only bright colours are the toy letter magnets of the nav.
 - **One accent, used for state.** Basil green marks what is live or decided: tonight's pick, your vote, a ticked shopping item. If green appears, it means something.
 - **Cardless by default.** Sections are separated by space and a hairline, not boxes. A meal card is just a photo with a title underneath — no border, no shadow, no fill.
+
+## Fridge
+
+Fork's signed-in screens are a fridge door, and the things that matter are magnets on it, lit for real (three.js, `client/fridge/`).
+
+- **The door** (`.fridge-door`): white enamel in light mode, graphite in dark, with two soft vertical sheen bands. Fixed behind the page.
+- **One light.** A soft room light plus a high, nearly frontal key light, so shadows tuck in close under each magnet and it reads as stuck to the door, not floating; a straight-on contact light darkens the edge where magnet meets steel. Dark mode adds a faint rim light from above so magnets don't sink into the graphite. Every 3D piece uses this rig (`kit.ts`).
+- **Letter magnets** are the nav and the loading screen, never meal titles. Archivo Black, extruded and bevelled, injection-moulded stipple finish, the six toy colours (`COLORS`), each letter a little tilted.
+- **Main nav** (`MagnetNav`, `tabs.ts`): Week, Meals, List, Family as letter magnets across the top. The selected tab is full size, the others smaller; on phones the row slides so the selected tab sits at the left, on desktop it stays put. The bar is transparent: content scrolls under it through a progressive blur. Swipe the page sideways (finger, mouse, two-finger trackpad) to move one tab; the letters march behind the drag, lift off the door, tip and wobble as they settle. Tap a tab to jump. Real links stay underneath for keyboards and screen readers, and show as plain words without WebGL.
+- **Loading** (`splash.ts`): FORK in letter magnets snaps onto a bare door while the app loads, then hops off letter by letter as the app slides up and the tabs march in. Once per visit.
+- **Resin magnets** (`resin.ts`): meal photos printed and sealed under clear resin with real refraction, rendered once per photo and size and cached. `ResinCard` (Tonight) is flat over the middle and curves only at the rim; text goes in its safe area, inset about 10%, so it is never bent; the lower part of the print is the same photo, blurred and dimmed, for the words. `ResinDome` is the round thumbnail (`Thumb`). Both show the flat photo until their render is ready.
 
 ## Colors
 
@@ -346,7 +357,8 @@ Every component comes from [shadcn/ui](https://ui.shadcn.com) (Base UI underneat
 
 - 150–200ms ease-out on opacity and transform only.
 - One moment of delight allowed: when a meal is picked, its tag scales in from 0.9.
-- Honor `prefers-reduced-motion`: all transitions become instant.
+- The fridge's motion (the tab letters marching, the loading splash) is the exception: it is physical, springy and only happens in response to the user or once on load.
+- Honor `prefers-reduced-motion`: all transitions become instant, the splash is skipped, and the tab letters move straight to place.
 
 ## Voice
 
