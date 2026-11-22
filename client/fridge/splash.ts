@@ -3,6 +3,7 @@
 // It's a plain overlay on <body>, outside Preact, so it survives the loading screens being swapped
 // for the app frame underneath it.
 import { hasWebGL, loadFont, magnetWord, pxScene, type Letter } from "./kit";
+import { mark } from "../live";
 
 type State = "idle" | "showing" | "leaving" | "gone";
 let state: State = "idle";
@@ -67,7 +68,7 @@ export async function hideSplash() {
   if (state !== "showing") return;
   state = "leaving";
   await inDone;
-  await new Promise((r) => setTimeout(r, Math.max(0, 900 - (performance.now() - shownAt))));
+  await new Promise((r) => setTimeout(r, 0));
   const H = innerHeight;
   const out = run(80 * 3 + 560, (e) => letters.forEach((l, i) => {
     const t = clamp((e - i * 80) / 560, 0, 1), lift = easeOut(clamp(t / 0.3, 0, 1)), fly = easeIn(clamp((t - 0.22) / 0.78, 0, 1));
@@ -80,7 +81,7 @@ export async function hideSplash() {
     revealers.clear();
   }, 260);
   await out;
-  setTimeout(() => { el?.remove(); scene?.dispose(); scene = null; el = null; state = "gone"; }, 700);
+  setTimeout(() => { el?.remove(); scene?.dispose(); scene = null; el = null; state = "gone"; mark("splash gone"); }, 700);
 }
 
 /** Is the splash covering the app right now? */

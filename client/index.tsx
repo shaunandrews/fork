@@ -1,5 +1,6 @@
 // Fork's screens. Each URL has its own file in pages/ that renders one of these, so refreshing or
 // opening any link (like /list) loads the right screen. The four tabs share one page: client/tabs-app.tsx.
+import { startLive } from "./live";
 import { useEffect, useState } from "preact/hooks";
 import {
   createClient,
@@ -41,6 +42,8 @@ import {
   useMedia,
 } from "./layout";
 
+// Before the client opens its socket, so the socket is watched from the start (client/live.ts).
+startLive();
 export const api = createClient<typeof app>();
 
 // Web font from DESIGN.md: Geist for everything, headings set bold and tight.

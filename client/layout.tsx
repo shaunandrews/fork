@@ -7,6 +7,8 @@ import { Link, navigate, useLocation } from "@spacefast/zero/client";
 import { MagnetNav, MagnetText, ProgressiveBlur, ResinCard } from "./fridge/ui";
 import { hideSplash } from "./fridge/splash";
 import type { TabsEngine } from "./fridge/tabs";
+import { DebugPanel } from "./debug";
+import { mark } from "./live";
 import { DevBadge } from "./dev-badge";
 
 // ---------- grid ----------
@@ -203,7 +205,10 @@ export function AppFrame({ familyName, children, panes }: { familyName?: string;
   activeRef.current = active;
   const engine = useRef<TabsEngine | null>(null);
   const main = useRef<HTMLElement>(null);
-  useEffect(() => void hideSplash(), []);
+  useEffect(() => {
+    mark("app shown");
+    void hideSplash();
+  }, []);
 
   // The page follows the magnets' position: off by (p - active) screens while a swipe or a switch is moving.
   const track = useRef<HTMLDivElement>(null);
@@ -259,6 +264,7 @@ export function AppFrame({ familyName, children, panes }: { familyName?: string;
         </main>
       )}
       <DevBadge />
+      <DebugPanel />
     </div>
   );
 }

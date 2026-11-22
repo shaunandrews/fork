@@ -5,6 +5,7 @@
 import { useLocation } from "@spacefast/zero/client";
 import { api, AppLoading, FamilyPage, Landing, ListPage, Redirect, useUser, WeekPage } from "./index";
 import { AppFrame, AppPage } from "./layout";
+import { mark } from "./live";
 import { IdeasPage, IngredientsPage, RecipesPage } from "./meals";
 
 let mealsPath = "/meals";
@@ -33,6 +34,7 @@ function SignedInTabs() {
   const me = api.useQuery("me");
   const loc = useLocation();
   if (me === undefined) return <AppLoading />;
+  mark("family");
   if (!me.family) return <Redirect to="/start" />;
   if (/^\/meals(\/(ideas|ingredients))?$/.test(loc.pathname)) mealsPath = loc.pathname;
   return (
@@ -56,6 +58,7 @@ export default function TabsApp() {
   const auth = useUser();
   const loc = useLocation();
   if (auth.isLoading) return <AppLoading />;
+  mark("signed in");
   if (!auth.signedIn) return loc.pathname === "/" ? <Landing signedIn={false} /> : <Redirect to="/" />;
   return <SignedInTabs />;
 }
