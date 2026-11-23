@@ -9,10 +9,11 @@
 //   - scenes compile their shaders ahead of the first frame (compileAsync), so nothing stalls mid-animation;
 //   - scenes draw only when something moves (see stage.ts and tabs.ts).
 // See DESIGN.md → Fridge.
-import * as THREE from "three";
-import { Font } from "three/addons/loaders/FontLoader.js";
-import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+// three.js comes from a tree-shaken, minified build of just what's used (vendor/three.js, from
+// tools/build-three.mjs): a third of the size of the full library, which was most of the app's JavaScript.
+import * as THREE from "./vendor/three.js";
+const { Font, TextGeometry, RoomEnvironment } = THREE as any;
+type Font = any;
 import { MAGNET_FONT } from "./magnet-font";
 
 export { THREE };

@@ -10,7 +10,6 @@
 // The canvas sits under the page (z-index 0; app content above it), so words laid over a card stay crisp
 // DOM text, and the tab bar's progressive blur blurs the magnets that scroll under it, like the rest.
 import { THREE, glyph, isDark, lightRig, look, makeRenderer, onTheme, plastic, COLORS, roomLight } from "./kit";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { splashAnimating } from "./splash";
 
 export type Piece = {
@@ -155,6 +154,7 @@ const backMaterial = new THREE.MeshStandardMaterial({ color: look().back, roughn
 
 // Sizes are for a card 1 unit wide (scaled to its box in px); the proportions are the ones Shaun approved.
 const CARD_RADIUS = 0.105, CARD_BACK = 0.025;
+const { RoundedBoxGeometry } = THREE as any;
 const cardGeos = new Map<string, { back: THREE.BufferGeometry; print: THREE.BufferGeometry; resin: THREE.BufferGeometry }>();
 function cardGeometry(aspect: number) {
   const key = aspect.toFixed(3);
