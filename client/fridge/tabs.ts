@@ -4,6 +4,7 @@
 // drag, hop a little each step and wobble as they settle. The selected tab is full size, the others shrink.
 // On phones the row slides so the selected tab sits at the left; on desktop the row stays put.
 import { magnetWord, pxScene, type Letter } from "./kit";
+import { splashAnimating } from "./splash";
 
 export type TabsOptions = { W: number; H: number; tabs: string[]; size: number; inactive: number; anchor: number; fixed: boolean };
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -46,6 +47,8 @@ export class TabsEngine {
         Object.assign(l, { x: wd.x + l.cx * wd.s, y: o.H / 2 + l.dy * wd.s, s: wd.s, r: l.tilt });
         l.mesh.visible = !hidden;
       }
+      // Compile while nothing is animating (a compile blocks the page): wait out the splash's move.
+      while (splashAnimating()) await new Promise((r) => setTimeout(r, 30));
       await this.S.warm();
       if (this.dead) return;
       this.kick();

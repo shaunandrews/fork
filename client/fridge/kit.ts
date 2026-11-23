@@ -5,7 +5,7 @@
 // Built to run like a game, not a render farm:
 //   - one geometry per letter shape and one material per colour, built once and shared by every scene
 //     (the page stage, the tab bar, the splash), so a word is just a few cheap meshes;
-//   - soft PCF shadows (no blurred VSM passes);
+//   - PCF shadows softened with a sample radius (no blurred VSM passes);
 //   - scenes compile their shaders ahead of the first frame (compileAsync), so nothing stalls mid-animation;
 //   - scenes draw only when something moves (see stage.ts and tabs.ts).
 // See DESIGN.md → Fridge.
@@ -128,7 +128,7 @@ export function makeRenderer(canvas: HTMLCanvasElement) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = look().exposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -138,17 +138,20 @@ export function makeRenderer(canvas: HTMLCanvasElement) {
 
 /** The fridge's light rig. Call `aim(centre, dist, w, h)` whenever the area it covers changes. */
 export function lightRig(scene: THREE.Scene, mapSize: number) {
-  const shadowLight = (int: number, dir: [number, number, number]) => {
+  const shadowLight = (int: number, dir: [number, number, number], radius: number) => {
     const l = new THREE.DirectionalLight("#ffffff", int);
     l.castShadow = true;
     l.shadow.mapSize.set(mapSize, mapSize);
+    l.shadow.radius = radius;
     l.shadow.bias = -0.0004;
     l.shadow.normalBias = 0.02;
     scene.add(l, l.target);
     return { l, dir: new THREE.Vector3(...dir).normalize() };
   };
-  const key = shadowLight(1.9, [-0.19, 0.28, 0.94]); // high and nearly frontal: shadows tuck in close, attached not floating
-  const contact = shadowLight(0.5, [0, 0.04, 1]); // a tight dark edge where plastic meets steel
+  const key = shadowLight(2.2, [-0.19, 0.28, 0.94], 6); // high and nearly frontal: shadows tuck in close, attached not floating
+  // A tight dark edge where plastic meets steel. Shadows only: almost no light of its own, because a
+  // head-on light puts a glare in the middle of every glossy magnet (right where the words sit).
+  const contact = shadowLight(0.06, [0, 0.04, 1], 2);
   scene.add(new THREE.HemisphereLight("#ffffff", "#dde1e4", 0.3));
   const rim = new THREE.DirectionalLight("#dfe8ff", look().rim); // dark only: picks out top edges against graphite
   scene.add(rim, rim.target);

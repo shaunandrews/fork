@@ -6,9 +6,9 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
 const entry = "/tmp/fork-three-entry.js";
 writeFileSync(entry, `
-export { AdditiveBlending, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DirectionalLight, ExtrudeGeometry,
-  Group, HemisphereLight, Material, MathUtils, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, NeutralToneMapping, NoColorSpace,
-  Object3D, PCFSoftShadowMap, PMREMGenerator, PerspectiveCamera, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Scene,
+export { AdditiveBlending, AddEquation, CustomBlending, OneFactor, ZeroFactor, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DirectionalLight, ExtrudeGeometry,
+  Group, HemisphereLight, Material, MathUtils, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, NeutralToneMapping, NoColorSpace,
+  Object3D, PCFShadowMap, PMREMGenerator, PerspectiveCamera, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Scene,
   ShadowMaterial, Shape, ShapeGeometry, SphereGeometry, Texture, TextureLoader, Vector3, WebGLRenderer } from "three";
 export { Font } from "three/addons/loaders/FontLoader.js";
 export { TextGeometry } from "three/addons/geometries/TextGeometry.js";

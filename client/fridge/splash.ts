@@ -4,6 +4,7 @@
 // for the app frame underneath it.
 import { hasWebGL, magnetWord, pxScene, type Letter } from "./kit";
 import { mark } from "../live";
+import { stageIdle } from "./stage";
 
 type State = "idle" | "showing" | "leaving" | "gone";
 let state: State = "idle";
@@ -12,6 +13,7 @@ let inDone: Promise<void> = Promise.resolve();
 const revealers = new Set<() => void>();
 let el: HTMLDivElement | null = null;
 let animating = false;
+let revealed = false;
 /** Is the splash mid-animation? Other 3D work waits for it, so it plays smoothly. */
 export const splashAnimating = () => animating;
 
@@ -76,7 +78,9 @@ export async function hideSplash() {
   if (state !== "showing") return;
   state = "leaving";
   await inDone;
-  await new Promise((r) => setTimeout(r, 0));
+  // Hold FORK still while the page's 3D compiles its shaders (that blocks the page, so not mid-animation),
+  // then hop off onto a page whose magnets draw at once.
+  await Promise.race([stageIdle(), new Promise((r) => setTimeout(r, 2500))]);
   const H = innerHeight;
   const out = run(80 * 3 + 560, (e) => letters.forEach((l, i) => {
     const t = clamp((e - i * 80) / 560, 0, 1), lift = easeOut(clamp(t / 0.3, 0, 1)), fly = easeIn(clamp((t - 0.22) / 0.78, 0, 1));
@@ -85,6 +89,7 @@ export async function hideSplash() {
   setTimeout(() => {
     el?.classList.add("gone");
     document.documentElement.classList.add("fork-revealed");
+    revealed = true;
     revealers.forEach((f) => f());
     revealers.clear();
   }, 260);
@@ -99,7 +104,7 @@ export async function hideSplash() {
 export const splashUp = () => state === "showing" || state === "leaving";
 /** Run `f` when the splash starts revealing the app (right away if no splash is up). */
 export function onReveal(f: () => void) {
-  if (!splashUp()) { f(); return () => {}; }
+  if (!splashUp() || revealed) { f(); return () => {}; }
   revealers.add(f);
   return () => revealers.delete(f);
 }

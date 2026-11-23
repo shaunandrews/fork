@@ -2,10 +2,13 @@
 // ONE WebGL renderer on a fixed canvas behind the page. Each piece is tied to a DOM box and placed exactly
 // over it, in CSS pixels, so the page lays everything out and the stage only draws.
 //
-// Why one scene: refraction (the resin) costs one extra pass per render, shadows one pass per light, and
-// shader compiles happen once per material. Drawing everything together pays those once per frame, not
-// once per piece. And it only draws when something moved: a scroll, a resize, a swipe, a layout change,
-// a transition. Nothing is read back to images; nothing blocks the main thread.
+// Why one scene: shadows cost one pass per light and shader compiles happen once per material, so drawing
+// everything together pays them once per frame, not once per piece. It only draws when something moved:
+// a scroll, a resize, a swipe, a layout change, a transition. Nothing is read back to images.
+//
+// The resin is faked the way games do it, not with real transmission (which re-renders the whole page into
+// a second full-size buffer every frame and ghosted the photo): the print's shader bends the photo near the
+// rim like a lens, and a clear gloss coat on top adds the reflections and the bright edge.
 //
 // The canvas sits under the page (z-index 0; app content above it), so words laid over a card stay crisp
 // DOM text, and the tab bar's progressive blur blurs the magnets that scroll under it, like the rest.
@@ -15,6 +18,8 @@ import { splashAnimating } from "./splash";
 export type Piece = {
   el: HTMLElement;
   obj: THREE.Object3D;
+  /** The piece's gloss coat, drawn in a second pass lit only by the room (see `coats`). */
+  coat?: THREE.Object3D;
   ready: boolean;
   /** Put the piece over its box (a viewport rect). */
   place(r: DOMRect): void;
@@ -28,6 +33,8 @@ let stage: ReturnType<typeof makeStage> | null = null;
 export const getStage = () => (stage ??= makeStage());
 /** Something on the page moved: draw for the next `ms` milliseconds (at least one frame). */
 export const kickStage = (ms = 0) => stage?.kick(ms);
+/** Resolves once the stage has compiled what it needs (at once if there's no stage). */
+export const stageIdle = () => (stage ? stage.idle() : Promise.resolve());
 
 function makeStage() {
   const canvas = document.createElement("canvas");
@@ -39,9 +46,22 @@ function makeStage() {
   const scene = new THREE.Scene();
   scene.environment = roomLight(renderer);
   (scene as any).environmentIntensity = look().env;
+  // Tilt the room so its brightest panel isn't straight behind the viewer: a flat glossy magnet facing you
+  // would mirror it as a glare in the middle of the card, right where the words sit.
+  (scene as any).environmentRotation?.set(0.9, 0.5, 0);
+  // The gloss coats live in their own scene, lit only by the room: reflections and a bright rim, but no
+  // hard highlight from the key light, which lands as a glare on the middle of a flat card.
+  const coats = new THREE.Scene();
+  coats.environment = scene.environment;
+  (coats as any).environmentIntensity = look().env;
+  (coats as any).environmentRotation?.set(0.9, 0.5, 0);
+  renderer.autoClear = false;
   const camera = new THREE.PerspectiveCamera(30, 1, 10, 10000);
   const shadowFloor = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: look().shadow }));
   shadowFloor.receiveShadow = true;
+  // Darken after the gloss coats are drawn: a coat adds light without alpha, and adding light onto a
+  // half-transparent shadow pixel first made it composite as black.
+  shadowFloor.renderOrder = 10;
   scene.add(shadowFloor);
   // A smaller shadow map than the bar's: softer edges, the way the prototypes' blurred shadows read.
   const rig = lightRig(scene, 1024);
@@ -82,8 +102,8 @@ function makeStage() {
     if (needsWarm) {
       needsWarm = false;
       warming = true;
-      for (const p of pieces) p.obj.visible = p.ready;
-      renderer.compileAsync(scene, camera).catch(() => {}).then(() => { warming = false; running = false; kick(); });
+      for (const p of pieces) { p.obj.visible = p.ready; if (p.coat) p.coat.visible = p.ready; }
+      Promise.all([renderer.compileAsync(scene, camera), renderer.compileAsync(coats, camera)]).catch(() => {}).then(() => { warming = false; running = false; kick(); });
       return;
     }
     const pending: Piece[] = [];
@@ -92,12 +112,15 @@ function makeStage() {
       const r = p.el.getBoundingClientRect();
       const on = r.width > 0 && r.height > 0 && r.bottom > -200 && r.top < H + 200 && r.right > -200 && r.left < W + 200 && !hiddenByStyle(p.el);
       p.obj.visible = on;
+      if (p.coat) p.coat.visible = on;
       if (on) {
         p.place(r);
         if (p.shown) pending.push(p);
       }
     }
+    renderer.clear();
     renderer.render(scene, camera);
+    renderer.render(coats, camera);
     for (const p of pending) { p.shown!(); p.shown = undefined; }
     if (performance.now() < until) requestAnimationFrame(frame);
     else running = false;
@@ -119,6 +142,7 @@ function makeStage() {
     const t = look();
     renderer.toneMappingExposure = t.exposure;
     (scene as any).environmentIntensity = t.env;
+    (coats as any).environmentIntensity = t.env;
     rig.rim.intensity = t.rim;
     (shadowFloor.material as THREE.ShadowMaterial).opacity = t.shadow;
     backMaterial.color.set(t.back);
@@ -126,10 +150,17 @@ function makeStage() {
   });
 
   return {
-    add(p: Piece) { pieces.add(p); scene.add(p.obj); kick(); },
+    add(p: Piece) { pieces.add(p); scene.add(p.obj); if (p.coat) coats.add(p.coat); kick(); },
     /** A piece just got its materials: compile before drawing it. */
     warm() { needsWarm = true; kick(); },
-    remove(p: Piece) { pieces.delete(p); scene.remove(p.obj); kick(); },
+    /** Resolves when no shader compile is waiting (so the splash can leave onto a page that draws at once). */
+    idle() {
+      return new Promise<void>((done) => {
+        const check = () => (needsWarm || warming ? setTimeout(check, 30) : done());
+        check();
+      });
+    },
+    remove(p: Piece) { pieces.delete(p); scene.remove(p.obj); if (p.coat) coats.remove(p.coat); kick(); },
     kick,
     renderer,
   };
@@ -141,20 +172,19 @@ function hiddenByStyle(el: HTMLElement) {
 }
 
 // ---------- resin ----------
-// Shared by every resin piece: the clear resin, and the backing. Resin thickness is in the piece's own units
-// (a card is 1 wide, a dome 1 in radius) and scales with it, so each shape has its own.
-const resin = (thickness: number) => new THREE.MeshPhysicalMaterial({ color: "#ffffff", roughness: 0.015, transmission: 1, thickness, ior: 1.5, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.2 });
-const resinCardMaterial = resin(0.1);
-// Small magnets (thumbnails, grid tiles) get a gloss coat instead of refraction: reflections and a bright rim,
-// added on top of the print (additive, black body), so the photo stays sharp and no refraction pass is
-// needed. Refraction is for the big cards, where you can see the photo bend at the rim.
-const glossMaterial = new THREE.MeshPhysicalMaterial({ color: "#000000", roughness: 0.04, metalness: 0, specularIntensity: 0, clearcoat: 1, clearcoatRoughness: 0.03, envMapIntensity: 0.9, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-const SMALL = 360;
+// Shared by every resin piece: the gloss coat, and the backing. The coat is a black body drawn additively,
+// so it only adds light (reflections of the room, the key light's highlight, a bright rim) on top of the print.
+// It adds colour but never alpha: where the coat's edge passes beyond the print (perspective), the page
+// must stay see-through, not turn black.
+const glossMaterial = new THREE.MeshPhysicalMaterial({
+  color: "#000000", roughness: 0.04, metalness: 0, specularIntensity: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.55,
+  transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+  blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
+});
 const backMaterial = new THREE.MeshStandardMaterial({ color: look().back, roughness: 0.6 });
 
 // Sizes are for a card 1 unit wide (scaled to its box in px); the proportions are the ones Shaun approved.
 const CARD_RADIUS = 0.105, CARD_BACK = 0.025;
-const { RoundedBoxGeometry } = THREE as any;
 const cardGeos = new Map<string, { back: THREE.BufferGeometry; print: THREE.BufferGeometry; resin: THREE.BufferGeometry }>();
 function cardGeometry(aspect: number) {
   const key = aspect.toFixed(3);
@@ -165,27 +195,11 @@ function cardGeometry(aspect: number) {
   const back = new THREE.ExtrudeGeometry(roundedShape(w, h, r), { depth: CARD_BACK, bevelEnabled: false, curveSegments: 12 });
   const print = roundedRect(w, h, r);
   print.translate(0, 0, CARD_BACK + 0.0005);
-  // The resin: flat across the middle (no distortion over words), curving down only in the outer rim.
-  const depth = 0.125;
-  const resin = new RoundedBoxGeometry(w, h, depth, 10, Math.min(r, 0.0625));
-  const p = resin.attributes.position, v = new THREE.Vector3();
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i);
-    if (v.z > 0) {
-      const n = Math.max(Math.abs(v.x / (w / 2)), Math.abs(v.y / (h / 2)));
-      const f = n < 0.93 ? 1 : Math.max(0, 1 - Math.pow((n - 0.93) / 0.07, 2));
-      p.setZ(i, v.z * (0.3 + 0.7 * f));
-    }
-  }
-  resin.computeVertexNormals();
-  // The middle of the top is one big flat quad: give its corners a straight-up normal, or they'd inherit the
-  // rim's tilt and smear the refraction across the whole photo.
-  const nrm = resin.attributes.normal;
-  for (let i = 0; i < p.count; i++) {
-    v.fromBufferAttribute(p, i);
-    if (v.z > 0 && Math.max(Math.abs(v.x / (w / 2)), Math.abs(v.y / (h / 2))) <= 0.93) nrm.setXYZ(i, 0, 0, 1);
-  }
-  resin.translate(0, 0, CARD_BACK + 0.001 + depth / 2);
+  // The coat: the card's own rounded rectangle, flat across the top and rounding down at the rim (a bevel),
+  // so it matches the print exactly and the rim catches the light.
+  const bevel = 0.03;
+  const resin = new THREE.ExtrudeGeometry(roundedShape(w, h, r), { depth: 0.002, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 8, curveSegments: 24 });
+  resin.translate(0, 0, CARD_BACK + 0.001 + bevel);
   g = { back, print, resin };
   cardGeos.set(key, g);
   return g;
@@ -235,46 +249,61 @@ function photoTexture(url: string) {
 }
 
 /**
- * The print under the resin: the photo, cropped to cover the card like `object-fit: cover` (a little
- * above centre). With `frost`, the lower part is the same photo blurred and dimmed, for words to sit on.
- * The blur is a mipmap read in the shader: no canvas work, no second texture.
+ * The print under the resin: the photo, cropped to cover the shape like `object-fit: cover` (a little above
+ * centre), bent near the rim like a lens (the resin's refraction, faked in the shader). With `frost`, the
+ * lower part is the same photo blurred and dimmed, for words to sit on; the blur is a mipmap read.
  */
-function printMaterial(src: THREE.Texture, aspect: number, frost: boolean) {
+function printMaterial(src: THREE.Texture, kind: "card" | "dome", aspect: number, frost: boolean) {
   const tex = src.clone();
   tex.needsUpdate = true;
   const img = src.image as { width: number; height: number };
   const ia = img.width / img.height;
   if (ia > aspect) { tex.repeat.set(aspect / ia, 1); tex.offset.set((1 - aspect / ia) / 2, 0); }
   else { tex.repeat.set(1, ia / aspect); tex.offset.set(0, (1 - ia / aspect) * 0.65); }
-  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 });
-  if (frost) {
-    m.onBeforeCompile = (sh) => {
-      sh.uniforms.frostRepeatY = { value: tex.repeat.y };
-      sh.uniforms.frostOffsetY = { value: tex.offset.y };
-      sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", "#include <common>\nuniform float frostRepeatY;\nuniform float frostOffsetY;")
-        .replace(
-          "#include <map_fragment>",
-          `vec4 sampledDiffuseColor = texture2D( map, vMapUv );
-           float frostY = (vMapUv.y - frostOffsetY) / frostRepeatY;
-           float frostMask = smoothstep(0.5, 0.26, frostY);
-           vec4 frosted = texture2D( map, vMapUv, 5.0 ) * vec4(vec3(0.72), 1.0);
-           diffuseColor *= mix(sampledDiffuseColor, frosted, frostMask);`,
-        );
-    };
-    m.customProgramCacheKey = () => "fork-frost";
-  }
+  // Unlit: the photo shows in its own colours, with no highlight of its own (the coat on top adds the shine).
+  const m = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.lensRepeat = { value: tex.repeat };
+    sh.uniforms.lensOffset = { value: tex.offset };
+    sh.uniforms.lensAspect = { value: aspect };
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", `#include <common>
+uniform vec2 lensRepeat;
+uniform vec2 lensOffset;
+uniform float lensAspect;
+// Where on the shape (0..1 both ways) to read, after the rim bends it toward the middle.
+vec2 lens(vec2 local) {
+  ${kind === "card"
+    ? `float d = min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y) / lensAspect);
+  float t = clamp(1.0 - d / 0.06, 0.0, 1.0);`
+    : `float t = clamp((length(local - 0.5) * 2.0 - 0.78) / 0.22, 0.0, 1.0);`}
+  return local + (vec2(0.5) - local) * t * t * t * 0.035;
+}`)
+      .replace(
+        "#include <map_fragment>",
+        `vec2 local = (vMapUv - lensOffset) / lensRepeat;
+         vec2 bent = lens(local) * lensRepeat + lensOffset;
+         vec4 sampledDiffuseColor = texture2D( map, bent );
+         ${frost ? `float frostMask = smoothstep(0.5, 0.26, local.y);
+         sampledDiffuseColor = mix(sampledDiffuseColor, texture2D( map, bent, 5.0 ) * vec4(vec3(0.72), 1.0), frostMask);` : ""}
+         diffuseColor *= sampledDiffuseColor;`,
+      );
+  };
+  m.customProgramCacheKey = () => `fork-print-${kind}-${frost}`;
   return m;
 }
 
 function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect: number, frost: boolean, onShown: () => void): Piece {
   const obj = new THREE.Group();
-  let print: THREE.MeshStandardMaterial | null = null;
+  const coat = new THREE.Group();
+  let print: THREE.MeshBasicMaterial | null = null;
   const piece: Piece = {
-    el, obj, ready: false, shown: onShown,
+    el, obj, coat, ready: false, shown: onShown,
     place(r) {
       obj.position.set(r.left + r.width / 2, -(r.top + r.height / 2), 0);
       obj.scale.setScalar(kind === "card" ? r.width : r.width / 2);
+      coat.position.copy(obj.position);
+      coat.scale.copy(obj.scale);
     },
     dispose() {
       getStage().remove(piece);
@@ -284,14 +313,12 @@ function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect:
   };
   photoTexture(url).then((tex) => {
     const g = kind === "card" ? cardGeometry(aspect) : domeGeometry();
-    print = printMaterial(tex, kind === "card" ? aspect : 1, frost);
+    print = printMaterial(tex, kind, kind === "card" ? aspect : 1, frost);
     const back = new THREE.Mesh(g.back, backMaterial);
     back.castShadow = back.receiveShadow = true;
     const face = new THREE.Mesh(g.print, print);
-    const small = kind === "dome" || el.getBoundingClientRect().width < SMALL;
-    const lens = new THREE.Mesh(g.resin, small ? glossMaterial : resinCardMaterial);
-    lens.castShadow = !small;
-    obj.add(back, face, lens);
+    obj.add(back, face);
+    coat.add(new THREE.Mesh(g.resin, glossMaterial));
     piece.ready = true;
     getStage().warm();
   }, () => {});
@@ -355,6 +382,7 @@ export function magnetTextPiece(el: HTMLElement, lines: string[], onShown: () =>
     dispose() { getStage().remove(piece); },
   };
   getStage().add(piece);
+  getStage().warm();
   return piece;
 }
 
