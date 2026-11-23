@@ -2,7 +2,7 @@
 // one letter at a time as the app slides in and the tab letters march in. Shown once per visit.
 // It's a plain overlay on <body>, outside Preact, so it survives the loading screens being swapped
 // for the app frame underneath it.
-import { hasWebGL, loadFont, magnetWord, pxScene, type Letter } from "./kit";
+import { hasWebGL, magnetWord, pxScene, type Letter } from "./kit";
 import { mark } from "../live";
 
 type State = "idle" | "showing" | "leaving" | "gone";
@@ -11,6 +11,9 @@ let shownAt = 0;
 let inDone: Promise<void> = Promise.resolve();
 const revealers = new Set<() => void>();
 let el: HTMLDivElement | null = null;
+let animating = false;
+/** Is the splash mid-animation? Other 3D work waits for it, so it plays smoothly. */
+export const splashAnimating = () => animating;
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
@@ -20,7 +23,9 @@ const easeBack = (t: number) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
 let scene: ReturnType<typeof pxScene> | null = null;
 let letters: (Letter & { ox: number })[] = [];
 const run = (dur: number, f: (e: number) => void) =>
-  new Promise<void>((done) => {
+  new Promise<void>((resolve) => {
+    animating = true;
+    const done = () => { animating = false; resolve(); };
     const t0 = performance.now();
     const tick = (t: number) => {
       const e = t - t0;
@@ -52,10 +57,13 @@ export function showSplash() {
   document.body.append(el);
   const W = innerWidth, H = innerHeight, size = W >= 900 ? 130 : Math.min(74, W / 5.3);
   scene = pxScene(canvas, W, H);
-  inDone = loadFont().then(async (font) => {
-    const w = magnetWord(font, "FORK", size, 0);
+  inDone = Promise.resolve().then(async () => {
+    const w = magnetWord("FORK", size, 0);
     letters = w.letters.map((l) => Object.assign(l, { ox: (W - w.w) / 2 + l.cx }));
-    letters.forEach((l) => { (l.mesh.material as any).transparent = true; place(l, H, { o: 0 }); scene!.scene.add(l.mesh); });
+    // The splash fades its letters out, so it gets its own copies of the shared materials.
+    letters.forEach((l) => { const m = (l.mesh.material as any).clone(); m.transparent = true; l.mesh.material = m; place(l, H, { o: 0 }); scene!.scene.add(l.mesh); });
+    // Compile the shaders before the first frame, so the snap-on animation plays from its first frame.
+    await scene!.warm();
     await run(70 * 3 + 320, (e) => letters.forEach((l, i) => {
       const t = clamp((e - i * 70) / 320, 0, 1);
       place(l, H, { z: 70 * (1 - easeOut(t)), r: 0.25 * (1 - easeBack(t)), o: clamp(t * 2.5, 0, 1) });
@@ -81,7 +89,10 @@ export async function hideSplash() {
     revealers.clear();
   }, 260);
   await out;
-  setTimeout(() => { el?.remove(); scene?.dispose(); scene = null; el = null; state = "gone"; mark("splash gone"); }, 700);
+  setTimeout(() => {
+    letters.forEach((l) => (l.mesh.material as any).dispose());
+    el?.remove(); scene?.dispose(); scene = null; el = null; state = "gone"; mark("splash gone");
+  }, 700);
 }
 
 /** Is the splash covering the app right now? */

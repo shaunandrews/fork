@@ -3,7 +3,7 @@
 // are stiff and followers lag, so the letters march; they lift off the door while moving, tip with the
 // drag, hop a little each step and wobble as they settle. The selected tab is full size, the others shrink.
 // On phones the row slides so the selected tab sits at the left; on desktop the row stays put.
-import { loadFont, magnetWord, pxScene, type Letter } from "./kit";
+import { magnetWord, pxScene, type Letter } from "./kit";
 
 export type TabsOptions = { W: number; H: number; tabs: string[]; size: number; inactive: number; anchor: number; fixed: boolean };
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -28,11 +28,13 @@ export class TabsEngine {
   constructor(canvas: HTMLCanvasElement, private o: TabsOptions, start: number, private onFrame: (p: number) => void, hidden: boolean) {
     this.p = this.target = start;
     this.S = pxScene(canvas, o.W, o.H);
-    this.ready = loadFont().then((font) => {
+    // Letters come from the shared shapes and materials (kit.ts); the shaders compile before the first
+    // frame, so the bar never stalls when it first moves.
+    this.ready = Promise.resolve().then(async () => {
       if (this.dead) return;
       let seed = 0;
       this.words = o.tabs.map((t) => {
-        const w = magnetWord(font, t, o.size, seed);
+        const w = magnetWord(t, o.size, seed);
         seed += t.length;
         return w;
       });
@@ -44,6 +46,8 @@ export class TabsEngine {
         Object.assign(l, { x: wd.x + l.cx * wd.s, y: o.H / 2 + l.dy * wd.s, s: wd.s, r: l.tilt });
         l.mesh.visible = !hidden;
       }
+      await this.S.warm();
+      if (this.dead) return;
       this.kick();
     });
   }
@@ -132,7 +136,7 @@ export class TabsEngine {
       const tz = 16 * mag; // pulled off the door while moving
       const tr = l.tilt - clamp(sv * 0.00045, -0.45, 0.45) * (0.7 + 0.6 * l.rnd); // tip with the drag
       const lead = sv < 0 ? 1 - l.u : l.u, k = 120 + 180 * lead, c = 2 * Math.sqrt(k) * 0.5; // leaders stiff, followers lag
-      if (reduced()) { Object.assign(l, { x: tx, y: H / 2 + l.dy * wd.s, s: ts, z: 0, r: l.tilt, vx: 0, vy: 0, vs: 0, vz: 0, vr: 0 }); l.mesh.position.set(l.x, -l.y, 0); l.mesh.rotation.z = l.r; l.mesh.scale.setScalar(ts); continue; }
+      if (reduced()) { Object.assign(l, { x: tx, y: H / 2 + l.dy * wd.s, s: ts, z: 0, r: l.tilt, vx: 0, vy: 0, vs: 0, vz: 0, vr: 0 }); l.mesh.position.set(l.x, -l.y, 0); l.mesh.rotation.z = l.r; l.mesh.scale.setScalar(l.base * ts); continue; }
       const n = 3, h = dt / n;
       for (let q = 0; q < n; q++) {
         l.vx += (k * (tx - l.x) - c * l.vx) * h; l.x += l.vx * h;
@@ -143,7 +147,7 @@ export class TabsEngine {
       }
       l.mesh.position.set(l.x, -l.y, l.z);
       l.mesh.rotation.z = l.r;
-      l.mesh.scale.setScalar(Math.max(0.001, l.s));
+      l.mesh.scale.setScalar(l.base * Math.max(0.001, l.s));
       if (Math.abs(l.vx) + Math.abs(l.vr) * 40 + Math.abs(l.vs) * 40 + Math.abs(l.vz) > 1.5 || Math.abs(tx - l.x) > 0.4 || Math.abs(tr - l.r) > 0.004) moving = true;
     }
     this.S.render();

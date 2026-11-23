@@ -6,6 +6,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from "preact
 import { Link, navigate, useLocation } from "@spacefast/zero/client";
 import { MagnetNav, MagnetText, ProgressiveBlur, ResinCard } from "./fridge/ui";
 import { hideSplash } from "./fridge/splash";
+import { kickStage } from "./fridge/stage";
 import type { TabsEngine } from "./fridge/tabs";
 import { DebugPanel } from "./debug";
 import { mark } from "./live";
@@ -213,6 +214,7 @@ export function AppFrame({ familyName, children, panes }: { familyName?: string;
   // The page follows the magnets' position: off by (p - active) screens while a swipe or a switch is moving.
   const track = useRef<HTMLDivElement>(null);
   const onFrame = (p: number) => {
+    kickStage(); // the resin and magnets on the page move with the row
     if (panes) {
       // All four tabs are mounted side by side: the row slides with the magnets, real content all the way.
       const t = track.current;
