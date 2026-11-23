@@ -9,11 +9,12 @@ writeFileSync(entry, `
 export { AdditiveBlending, AddEquation, CustomBlending, OneFactor, ZeroFactor, BufferGeometry, CanvasTexture, CircleGeometry, CylinderGeometry, DirectionalLight, ExtrudeGeometry,
   Group, HemisphereLight, Material, MathUtils, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, NeutralToneMapping, NoColorSpace,
   Object3D, PCFShadowMap, PMREMGenerator, PerspectiveCamera, PlaneGeometry, RepeatWrapping, SRGBColorSpace, Scene,
-  ShadowMaterial, Shape, ShapeGeometry, SphereGeometry, Texture, TextureLoader, Vector3, WebGLRenderer } from "three";
+  ShadowMaterial, Shape, ShapeGeometry, SphereGeometry, Texture, TextureLoader, Vector2, Vector3, WebGLRenderer } from "three";
 export { Font } from "three/addons/loaders/FontLoader.js";
 export { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 export { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 export { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+export { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 `);
 const root = new URL("..", import.meta.url).pathname;
 mkdirSync(root + "client/fridge/vendor", { recursive: true });

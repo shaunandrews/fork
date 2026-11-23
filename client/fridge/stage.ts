@@ -6,9 +6,12 @@
 // everything together pays them once per frame, not once per piece. It only draws when something moved:
 // a scroll, a resize, a swipe, a layout change, a transition. Nothing is read back to images.
 //
-// The resin is faked the way games do it, not with real transmission (which re-renders the whole page into
-// a second full-size buffer every frame and ghosted the photo): the print's shader bends the photo near the
-// rim like a lens, and a clear gloss coat on top adds the reflections and the bright edge.
+// The resin refracts for real, ray-traced in its own shader: for every pixel of the resin surface, the view
+// ray bends through the surface (Snell's law, index 1.5) and travels down to the printed photo, which is a
+// flat plane at a known depth under it; the shader reads the photo where the ray lands. So the photo bends
+// and magnifies through the curved rim (and the whole dome of a round magnet) exactly as light would, with
+// Fresnel reflections of the room on top. No second render of the page (three's transmission re-drew the
+// whole page into another buffer every frame, which is what made it slow and ghosted the photo).
 //
 // The canvas sits under the page (z-index 0; app content above it), so words laid over a card stay crisp
 // DOM text, and the tab bar's progressive blur blurs the magnets that scroll under it, like the rest.
@@ -172,19 +175,13 @@ function hiddenByStyle(el: HTMLElement) {
 }
 
 // ---------- resin ----------
-// Shared by every resin piece: the gloss coat, and the backing. The coat is a black body drawn additively,
-// so it only adds light (reflections of the room, the key light's highlight, a bright rim) on top of the print.
-// It adds colour but never alpha: where the coat's edge passes beyond the print (perspective), the page
-// must stay see-through, not turn black.
-const glossMaterial = new THREE.MeshPhysicalMaterial({
-  color: "#000000", roughness: 0.04, metalness: 0, specularIntensity: 0, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 0.55,
-  transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
-  blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor,
-});
+// Shared by every resin piece: the backing.
 const backMaterial = new THREE.MeshStandardMaterial({ color: look().back, roughness: 0.6 });
 
 // Sizes are for a card 1 unit wide (scaled to its box in px); the proportions are the ones Shaun approved.
 const CARD_RADIUS = 0.105, CARD_BACK = 0.025;
+// The coat's rim: how far in from the edge it curves, and how high it rises (card widths).
+const RIM = 0.08, RISE = 0.06;
 const cardGeos = new Map<string, { back: THREE.BufferGeometry; print: THREE.BufferGeometry; resin: THREE.BufferGeometry }>();
 function cardGeometry(aspect: number) {
   const key = aspect.toFixed(3);
@@ -197,10 +194,14 @@ function cardGeometry(aspect: number) {
   print.translate(0, 0, CARD_BACK + 0.0005);
   // The coat: the card's own rounded rectangle, flat across the top and rounding down at the rim (a bevel),
   // so it matches the print exactly and the rim catches the light.
-  const bevel = 0.03;
-  const resin = new THREE.ExtrudeGeometry(roundedShape(w, h, r), { depth: 0.002, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 8, curveSegments: 24 });
-  resin.translate(0, 0, CARD_BACK + 0.001 + bevel);
-  g = { back, print, resin };
+  // A domed rim, about 8% of the width in from each edge, the way poured resin rounds over the edge: thick
+  // enough that the photo visibly bends and magnifies under it.
+  const rim = RIM, rise = RISE;
+  const resin = new THREE.ExtrudeGeometry(roundedShape(w, h, r), { depth: 0.002, bevelEnabled: true, bevelThickness: rise, bevelSize: rim, bevelOffset: -rim, bevelSegments: 16, curveSegments: 24 });
+  resin.translate(0, 0, CARD_BACK + 0.001 + rise);
+  // Smooth the rim's facets (they'd refract as stair-steps), keeping the sharp edge at the bottom.
+  const smooth = (THREE as any).toCreasedNormals(resin, Math.PI / 3);
+  g = { back, print, resin: smooth };
   cardGeos.set(key, g);
   return g;
 }
@@ -248,55 +249,102 @@ function photoTexture(url: string) {
   return t;
 }
 
+// Where the print lies under each shape, in the shape's own units (see cardGeometry and domeGeometry).
+const PRINT_Z = { card: CARD_BACK + 0.0005, dome: 0.131 };
+
 /**
- * The print under the resin: the photo, cropped to cover the shape like `object-fit: cover` (a little above
- * centre), bent near the rim like a lens (the resin's refraction, faked in the shader). With `frost`, the
- * lower part is the same photo blurred and dimmed, for words to sit on; the blur is a mipmap read.
+ * The resin, with the photo seen through it. The photo is cropped to cover the shape like `object-fit:
+ * cover` (a little above centre). With `frost`, the lower part of the print is the same photo blurred and
+ * dimmed (a mipmap read), for words to sit on.
  */
-function printMaterial(src: THREE.Texture, kind: "card" | "dome", aspect: number, frost: boolean) {
+function resinMaterial(src: THREE.Texture, kind: "card" | "dome", aspect: number, frost: boolean) {
   const tex = src.clone();
   tex.needsUpdate = true;
   const img = src.image as { width: number; height: number };
   const ia = img.width / img.height;
   if (ia > aspect) { tex.repeat.set(aspect / ia, 1); tex.offset.set((1 - aspect / ia) / 2, 0); }
   else { tex.repeat.set(1, ia / aspect); tex.offset.set(0, (1 - ia / aspect) * 0.65); }
-  // Unlit: the photo shows in its own colours, with no highlight of its own (the coat on top adds the shine).
-  const m = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  // Black body, so the only light it adds of its own is the room's reflection (Fresnel) and the clear coat;
+  // the photo comes through as emitted light, so it keeps its own colours.
+  const m = new THREE.MeshPhysicalMaterial({ color: "#000000", roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 0.7 });
+  const size = kind === "card" ? new THREE.Vector2(1, 1 / aspect) : new THREE.Vector2(2, 2);
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.lensRepeat = { value: tex.repeat };
-    sh.uniforms.lensOffset = { value: tex.offset };
-    sh.uniforms.lensAspect = { value: aspect };
+    Object.assign(sh.uniforms, {
+      printMap: { value: tex }, printRepeat: { value: tex.repeat }, printOffset: { value: tex.offset },
+      printSize: { value: size }, printZ: { value: PRINT_Z[kind] },
+      rimWidth: { value: RIM }, rimRise: { value: RISE }, cornerRadius: { value: CARD_RADIUS },
+    });
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNormal;\nvarying vec3 vCamObj;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObjPos = position;\nvObjNormal = normal;\nvCamObj = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;");
     sh.fragmentShader = sh.fragmentShader
       .replace("#include <common>", `#include <common>
-uniform vec2 lensRepeat;
-uniform vec2 lensOffset;
-uniform float lensAspect;
-// Where on the shape (0..1 both ways) to read, after the rim bends it toward the middle.
-vec2 lens(vec2 local) {
+varying vec3 vObjPos;
+varying vec3 vObjNormal;
+varying vec3 vCamObj;
+uniform sampler2D printMap;
+uniform vec2 printRepeat;
+uniform vec2 printOffset;
+uniform vec2 printSize;
+uniform float printZ;
+uniform float rimWidth;
+uniform float rimRise;
+uniform float cornerRadius;
+vec3 forkN;
+// Signed distance to the card's rounded rectangle (negative inside).
+float sdCard(vec2 p) {
+  vec2 q = abs(p) - printSize * 0.5 + cornerRadius;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - cornerRadius;
+}
+// The resin's surface normal, exact rather than from the mesh's facets (facets refract as ripples).
+vec3 resinNormal(vec3 p) {
   ${kind === "card"
-    ? `float d = min(min(local.x, 1.0 - local.x), min(local.y, 1.0 - local.y) / lensAspect);
-  float t = clamp(1.0 - d / 0.06, 0.0, 1.0);`
-    : `float t = clamp((length(local - 0.5) * 2.0 - 0.78) / 0.22, 0.0, 1.0);`}
-  return local + (vec2(0.5) - local) * t * t * t * 0.035;
+    ? `float d = -sdCard(p.xy);
+  vec2 e = vec2(0.0005, 0.0);
+  vec2 g = normalize(vec2(sdCard(p.xy + e.xy) - sdCard(p.xy - e.xy), sdCard(p.xy + e.yx) - sdCard(p.xy - e.yx)));
+  // Height rises over the rim as a quarter ellipse: steep at the edge, flat inside.
+  float s = clamp((rimWidth - d) / rimWidth, 0.0, 0.985);
+  float slope = rimRise * s / (rimWidth * sqrt(1.0 - s * s));
+  return normalize(vec3(g * slope, 1.0));`
+    : `return normalize(p - vec3(0.0, 0.0, ${(0.133 - 1.9 * Math.cos(Math.asin(1 / 1.9))).toFixed(5)}));`}
 }`)
       .replace(
-        "#include <map_fragment>",
-        `vec2 local = (vMapUv - lensOffset) / lensRepeat;
-         vec2 bent = lens(local) * lensRepeat + lensOffset;
-         vec4 sampledDiffuseColor = texture2D( map, bent );
-         ${frost ? `float frostMask = smoothstep(0.5, 0.26, local.y);
-         sampledDiffuseColor = mix(sampledDiffuseColor, texture2D( map, bent, 5.0 ) * vec4(vec3(0.72), 1.0), frostMask);` : ""}
-         diffuseColor *= sampledDiffuseColor;`,
+        "#include <normal_fragment_maps>",
+        `#include <normal_fragment_maps>
+        forkN = resinNormal(vObjPos);
+        normal = normalize((viewMatrix * vec4(forkN, 0.0)).xyz);`,
+      )
+      .replace("#include <clearcoat_normal_fragment_maps>", "#include <clearcoat_normal_fragment_maps>\n#ifdef USE_CLEARCOAT\nclearcoatNormal = normal;\n#endif")
+      .replace(
+        "#include <emissivemap_fragment>",
+        `{
+          // Trace the view ray into the resin and down to the print.
+          vec3 V = normalize(vObjPos - vCamObj);
+          vec3 N = forkN;
+          vec3 R = refract(V, N, 1.0 / 1.5);
+          if (dot(R, R) == 0.0) R = V;
+          float t = (printZ - vObjPos.z) / min(R.z, -0.05);
+          vec2 hit = vObjPos.xy + R.xy * t;
+          vec2 local = clamp(hit / printSize + 0.5, 0.0, 1.0);
+          vec2 uv = local * printRepeat + printOffset;
+          vec3 photo = texture2D(printMap, uv).rgb;
+          ${frost ? `float frostMask = smoothstep(0.5, 0.26, local.y);
+          photo = mix(photo, texture2D(printMap, uv, 5.0).rgb * 0.72, frostMask);` : ""}
+          // What reflects off the surface doesn't come through it.
+          float F = 0.04 + 0.96 * pow(1.0 - clamp(dot(-V, N), 0.0, 1.0), 5.0);
+          totalEmissiveRadiance = photo * (1.0 - F);
+        }`,
       );
   };
-  m.customProgramCacheKey = () => `fork-print-${kind}-${frost}`;
+  m.customProgramCacheKey = () => `fork-resin-${frost}`;
+  m.toneMapped = false;
   return m;
 }
 
 function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect: number, frost: boolean, onShown: () => void): Piece {
   const obj = new THREE.Group();
   const coat = new THREE.Group();
-  let print: THREE.MeshBasicMaterial | null = null;
+  let mat: THREE.MeshPhysicalMaterial | null = null;
   const piece: Piece = {
     el, obj, coat, ready: false, shown: onShown,
     place(r) {
@@ -307,18 +355,16 @@ function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect:
     },
     dispose() {
       getStage().remove(piece);
-      print?.map?.dispose();
-      print?.dispose();
+      mat?.dispose();
     },
   };
   photoTexture(url).then((tex) => {
     const g = kind === "card" ? cardGeometry(aspect) : domeGeometry();
-    print = printMaterial(tex, kind, kind === "card" ? aspect : 1, frost);
+    mat = resinMaterial(tex, kind, kind === "card" ? aspect : 1, frost);
     const back = new THREE.Mesh(g.back, backMaterial);
     back.castShadow = back.receiveShadow = true;
-    const face = new THREE.Mesh(g.print, print);
-    obj.add(back, face);
-    coat.add(new THREE.Mesh(g.resin, glossMaterial));
+    obj.add(back);
+    coat.add(new THREE.Mesh(g.resin, mat));
     piece.ready = true;
     getStage().warm();
   }, () => {});
