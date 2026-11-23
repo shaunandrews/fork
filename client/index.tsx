@@ -61,6 +61,17 @@ if (typeof document !== "undefined" && !document.getElementById("fork-fonts")) {
   document.head.append(pre, css);
 }
 
+// The site icon: a red letter-magnet F (assets/favicon.svg; the same data is in sf.jsonc → meta.favicon).
+if (typeof document !== "undefined" && !document.getElementById("fork-icon")) {
+  for (const l of document.querySelectorAll('link[rel~="icon"]')) l.remove();
+  const icon = document.createElement("link");
+  icon.id = "fork-icon";
+  icon.rel = "icon";
+  icon.type = "image/svg+xml";
+  icon.href = "data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\"%3E%3Cdefs%3E%3ClinearGradient id=\"g\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"%3E%3Cstop offset=\"0\" stop-color=\"#ff6a52\"/%3E%3Cstop offset=\".55\" stop-color=\"#e8382a\"/%3E%3Cstop offset=\"1\" stop-color=\"#cf2c20\"/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform=\"rotate(-6 32 32)\"%3E%3Cellipse cx=\"34\" cy=\"58\" rx=\"17\" ry=\"3\" fill=\"#000\" opacity=\".12\"/%3E%3Cpath transform=\"translate(11.69 57.40) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"#a3221a\" stroke=\"#a3221a\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3Cpath transform=\"translate(11.25 56.72) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"#a3221a\" stroke=\"#a3221a\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3Cpath transform=\"translate(10.81 56.04) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"#a3221a\" stroke=\"#a3221a\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3Cpath transform=\"translate(10.37 55.36) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"#a3221a\" stroke=\"#a3221a\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3Cpath transform=\"translate(9.93 54.68) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"#a3221a\" stroke=\"#a3221a\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3Cpath transform=\"translate(9.49 54.00) scale(0.04603)\" d=\"M103 0L103 -956L875 -956L875 -726L410 -726L410 -563L810 -563L810 -343L410 -343L410 0L103 0Z\" fill=\"url(#g)\" stroke=\"url(#g)\" stroke-width=\"70\" stroke-linejoin=\"round\"/%3E%3C/g%3E%3C/svg%3E";
+  document.head.append(icon);
+}
+
 // shadcn/ui token mapping. Zero aliases shadcn's names onto Fork's tokens, but maps
 // primary to Basil and popovers to surface. Fork's primary action is ink (DESIGN.md:
 // Basil is state only), focus rings are ink, and sheets sit on canvas.
@@ -177,7 +188,7 @@ function Shell({ children }: { children: any }) {
 }
 
 export function Loading() {
-  return <p class="py-10 text-[15px] text-ink-muted">Loading…</p>;
+  return <p class="fork-loading py-10 text-[15px] text-ink-muted">Loading…</p>;
 }
 
 // ---------- sign in ----------

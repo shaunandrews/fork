@@ -239,8 +239,12 @@ export function AppFrame({ familyName, children, panes }: { familyName?: string;
   };
   useTabSwipe(main, engine, () => activeRef.current, TABS.length, go);
   // Before the magnets exist (or without WebGL) nothing drives the row: put it on the current tab directly.
+  const placedTrack = useRef(false);
   useLayoutEffect(() => {
-    if (panes && track.current && !engine.current) track.current.style.transform = `translate3d(${-active * 100}%,0,0)`;
+    // On first paint (and whenever nothing is driving it) put the row on the current tab, so the tab next
+    // door never shows for a frame while the magnets get going.
+    if (panes && track.current && (!engine.current || !placedTrack.current)) track.current.style.transform = `translate3d(${-active * 100}%,0,0)`;
+    placedTrack.current = true;
   }, [active]);
 
   return (
@@ -485,7 +489,7 @@ export function DetailTemplate({
       <div class="mx-auto max-w-[1136px] px-5 pt-3 md:px-8 md:pt-6">
         <PhotoHero image={image ?? null} title={title} meta={meta} topLeft={<BackPill to={back.to} text={back.text} />} topRight={photoAction} />
       </div>
-      <div class={container}>
+      <div class={`${container} fork-enter`}>
         <div class={`${flow} mt-6`}>
           {actions ? <div class="flex flex-wrap items-center gap-3">{actions}</div> : null}
           <div class="mt-10">{children}</div>
@@ -548,12 +552,12 @@ export function PhotoHero({
     <>
       {onOpen ? <button type="button" class="absolute inset-0 rounded-[inherit]" onClick={onOpen} aria-label={openLabel ?? title} /> : null}
       {topLeft || topRight ? (
-        <div class="pointer-events-none absolute inset-x-[7%] top-[6%] flex items-center justify-between">
+        <div class="fork-enter pointer-events-none absolute inset-x-[7%] top-[6%] flex items-center justify-between">
           <span class="pointer-events-auto">{topLeft}</span>
           <span class="pointer-events-auto">{topRight}</span>
         </div>
       ) : null}
-      <div class={`pointer-events-none absolute inset-x-[9%] bottom-[9%] ${ink}`}>
+      <div class={`fork-enter pointer-events-none absolute inset-x-[9%] bottom-[9%] ${ink}`}>
         {eyebrow ? <p class={`text-[13px] font-semibold uppercase tracking-[0.08em] ${image ? "text-white/80" : "opacity-70"}`}>{eyebrow}</p> : null}
         <H class="mt-1 text-[clamp(2rem,7vw,3.25rem)] font-bold leading-[1] tracking-[-0.04em]">{title}</H>
         {meta ? <p class={`mt-2 text-[15px] ${image ? "text-white/85" : "opacity-75"}`}>{meta}</p> : null}

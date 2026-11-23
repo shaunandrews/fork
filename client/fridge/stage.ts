@@ -29,6 +29,30 @@ export type Piece = {
   /** Called once, after the first frame that drew it. */
   shown?: () => void;
   dispose(): void;
+  // Shared-element moves (see `flights`): what the piece shows, where it was last drawn, and a move in progress.
+  key?: string;
+  kind?: string;
+  last?: Box;
+  seenAt?: number;
+  placed?: boolean;
+  flight?: { from: Box; start: number };
+};
+type Box = { left: number; top: number; width: number; height: number };
+
+// Smart-animate between screens: when a resin magnet leaves the screen, where it was is remembered for a
+// moment under its photo. If the next screen shows the same photo in the same kind of magnet (a meal's
+// tile in the grid and the card at the top of its page), the new one starts where the old one was and
+// flies and grows (or shrinks) into place, the way Keynote's Magic Move does.
+const flights = new Map<string, { box: Box; at: number; kind: string }>();
+const FLIGHT_MS = 480;
+const easeFlight = (t: number) => 1 - Math.pow(1 - t, 4);
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** The photo a piece shows, without its size in the address, so a tile and a hero of one meal match. */
+const photoKey = (url: string) => url.split("?")[0];
+/** Is a magnet of this photo mid-move between screens? Then its flat stand-in shouldn't show at all. */
+export const flightWaiting = (url: string) => {
+  const f = flights.get(photoKey(url));
+  return !!f && performance.now() - f.at < 1200 && !reducedMotion();
 };
 
 let stage: ReturnType<typeof makeStage> | null = null;
@@ -117,7 +141,25 @@ function makeStage() {
       p.obj.visible = on;
       if (p.coat) p.coat.visible = on;
       if (on) {
-        p.place(r);
+        let box: Box = r;
+        if (!p.placed) {
+          p.placed = true;
+          const f = p.key ? flights.get(p.key) : undefined;
+          const landsInView = r.left < W && r.right > 0 && r.top < H && r.bottom > 0;
+          if (f && landsInView && f.kind === p.kind && performance.now() - f.at < 1200 && !reducedMotion() && Math.abs(f.box.top - r.top) + Math.abs(f.box.width - r.width) > 4) {
+            p.flight = { from: f.box, start: performance.now() };
+            flights.delete(p.key!);
+          }
+        }
+        if (p.flight) {
+          const t = Math.min(1, (performance.now() - p.flight.start) / FLIGHT_MS), e = easeFlight(t), a = p.flight.from;
+          box = { left: a.left + (r.left - a.left) * e, top: a.top + (r.top - a.top) * e, width: a.width + (r.width - a.width) * e, height: a.height + (r.height - a.height) * e };
+          if (t >= 1) p.flight = undefined;
+          else until = Math.max(until, performance.now() + 32);
+        }
+        p.place(box as DOMRect);
+        p.last = { left: r.left, top: r.top, width: r.width, height: r.height };
+        p.seenAt = performance.now();
         if (p.shown) pending.push(p);
       }
     }
@@ -163,7 +205,13 @@ function makeStage() {
         check();
       });
     },
-    remove(p: Piece) { pieces.delete(p); scene.remove(p.obj); if (p.coat) coats.remove(p.coat); kick(); },
+    remove(p: Piece) {
+      // Remember where it was, in case the next screen shows the same photo (see `flights`).
+      // (Drawn on the last frame = on screen now: the stage redraws on every scroll and layout change.)
+      const l = p.last, inView = !!l && l.left < innerWidth && l.left + l.width > 0 && l.top < innerHeight && l.top + l.height > 0;
+      if (p.key && p.kind && l && p.obj.visible && inView) flights.set(p.key, { box: p.last, at: performance.now(), kind: p.kind });
+      pieces.delete(p); scene.remove(p.obj); if (p.coat) coats.remove(p.coat); kick();
+    },
     kick,
     renderer,
   };
@@ -235,6 +283,8 @@ function domeGeometry() {
 const loader = new THREE.TextureLoader();
 loader.setCrossOrigin("anonymous");
 const textures = new Map<string, Promise<THREE.Texture>>();
+// The latest loaded texture of each photo, whatever its size (keyed by `photoKey`).
+const loadedPhotos = new Map<string, THREE.Texture>();
 /** A photo's texture, or for `color:#rrggbb` a plain print of that colour (a meal with no photo yet). */
 function photoTexture(url: string) {
   let t = textures.get(url);
@@ -253,6 +303,7 @@ function photoTexture(url: string) {
     t = loader.loadAsync(url).then((tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 4;
+      loadedPhotos.set(photoKey(url), tex);
       return tex;
     });
     t.catch(() => textures.delete(url));
@@ -269,23 +320,28 @@ const PRINT_Z = { card: CARD_BACK + 0.0005, dome: 0.131 };
  * cover` (a little above centre). With `frost`, the lower part of the print is the same photo blurred and
  * dimmed (a mipmap read), for words to sit on.
  */
-function resinMaterial(src: THREE.Texture, kind: "card" | "dome", aspect: number, frost: boolean) {
+function cropped(src: THREE.Texture, aspect: number) {
   const tex = src.clone();
   tex.needsUpdate = true;
   const img = src.image as { width: number; height: number };
   const ia = img.width / img.height;
   if (ia > aspect) { tex.repeat.set(aspect / ia, 1); tex.offset.set((1 - aspect / ia) / 2, 0); }
   else { tex.repeat.set(1, ia / aspect); tex.offset.set(0, (1 - ia / aspect) * 0.65); }
+  return tex;
+}
+function resinMaterial(src: THREE.Texture, kind: "card" | "dome", aspect: number, frost: boolean) {
+  const tex = cropped(src, aspect);
   // Black body, so the only light it adds of its own is the room's reflection (Fresnel) and the clear coat;
   // the photo comes through as emitted light, so it keeps its own colours.
   const m = new THREE.MeshPhysicalMaterial({ color: "#000000", roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, envMapIntensity: 0.7 });
   const size = kind === "card" ? new THREE.Vector2(1, 1 / aspect) : new THREE.Vector2(2, 2);
+  const u = {
+    printMap: { value: tex }, printRepeat: { value: tex.repeat }, printOffset: { value: tex.offset },
+    printSize: { value: size }, printZ: { value: PRINT_Z[kind] },
+    rimWidth: { value: RIM }, rimRise: { value: RISE }, cornerRadius: { value: CARD_RADIUS },
+  };
   m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, {
-      printMap: { value: tex }, printRepeat: { value: tex.repeat }, printOffset: { value: tex.offset },
-      printSize: { value: size }, printZ: { value: PRINT_Z[kind] },
-      rimWidth: { value: RIM }, rimRise: { value: RISE }, cornerRadius: { value: CARD_RADIUS },
-    });
+    Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vObjPos;\nvarying vec3 vObjNormal;\nvarying vec3 vCamObj;")
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObjPos = position;\nvObjNormal = normal;\nvCamObj = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;");
@@ -350,7 +406,14 @@ vec3 resinNormal(vec3 p) {
   };
   m.customProgramCacheKey = () => `fork-resin-${frost}`;
   m.toneMapped = false;
-  return m;
+  /** Show a sharper copy of the same photo. */
+  const setPhoto = (src2: THREE.Texture) => {
+    const t2 = cropped(src2, aspect);
+    u.printMap.value = t2;
+    u.printRepeat.value = t2.repeat;
+    u.printOffset.value = t2.offset;
+  };
+  return { m, setPhoto };
 }
 
 function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect: number, frost: boolean, onShown: () => void): Piece {
@@ -358,7 +421,7 @@ function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect:
   const coat = new THREE.Group();
   let mat: THREE.MeshPhysicalMaterial | null = null;
   const piece: Piece = {
-    el, obj, coat, ready: false, shown: onShown,
+    el, obj, coat, ready: false, shown: onShown, key: photoKey(url), kind,
     place(r) {
       obj.position.set(r.left + r.width / 2, -(r.top + r.height / 2), 0);
       obj.scale.setScalar(kind === "card" ? r.width : r.width / 2);
@@ -366,13 +429,22 @@ function resinPiece(el: HTMLElement, url: string, kind: "card" | "dome", aspect:
       coat.scale.copy(obj.scale);
     },
     dispose() {
+      disposed = true;
       getStage().remove(piece);
       mat?.dispose();
     },
   };
-  photoTexture(url).then((tex) => {
+  let disposed = false;
+  // If this photo is already on hand at another size (the tile it's flying from), start with that one at
+  // once and swap in the right size when it arrives, so the move starts without waiting on the network.
+  const fresh = !textures.has(url);
+  const have = fresh ? loadedPhotos.get(photoKey(url)) : undefined;
+  const wanted = photoTexture(url);
+  (have ? Promise.resolve(have) : wanted).then((tex) => {
     const g = kind === "card" ? cardGeometry(aspect) : domeGeometry();
-    mat = resinMaterial(tex, kind, kind === "card" ? aspect : 1, frost);
+    const r = resinMaterial(tex, kind, kind === "card" ? aspect : 1, frost);
+    mat = r.m;
+    if (have) wanted.then((better) => { if (!disposed) { r.setPhoto(better); getStage().kick(); } }, () => {});
     const back = new THREE.Mesh(g.back, backMaterial);
     back.castShadow = back.receiveShadow = true;
     obj.add(back);

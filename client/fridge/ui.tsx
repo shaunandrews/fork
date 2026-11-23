@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import { hasWebGL } from "./kit";
 import { TabsEngine } from "./tabs";
 import { onReveal, splashUp } from "./splash";
-import { magnetLayout, magnetTextPiece, resinCardPiece, resinDomePiece } from "./stage";
+import { flightWaiting, magnetLayout, magnetTextPiece, resinCardPiece, resinDomePiece } from "./stage";
 
 // ---------- styles ----------
 // Zero has no stylesheet hook, so the fridge's few hand-written rules go in once at startup.
@@ -53,8 +53,14 @@ ${blur("top")}
 @media (prefers-reduced-transparency: reduce) { .progressive-blur > i { display: none; } .progressive-blur.top::after { background: var(--door-top); } }
 .magnet-nav canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: pointer; }
 .resin { position: relative; }
-.resin > .resin-flat { position: absolute; inset: 0; transition: opacity .3s ease; }
+.resin > .resin-flat { position: absolute; inset: 0; }
 .resin.ready > .resin-flat { opacity: 0; }
+/* "Loading…" only shows if loading actually takes a while, so a quick screen change doesn't flash it. */
+.fork-loading { animation: fork-enter .25s ease .6s both; }
+/* A screen's words arrive just after its magnets start to move (see flights in stage.ts). */
+.fork-enter { animation: fork-enter .32s cubic-bezier(.2,.8,.2,1) .14s both; }
+@keyframes fork-enter { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .fork-enter { animation: none; } }
 `;
   document.head.append(s);
 }
@@ -172,7 +178,10 @@ function usePiece(make: (el: HTMLElement, shown: () => void) => { dispose(): voi
  * `children` sit over the card inside its safe area (clear of the curved rim): use for the title and actions.
  */
 export function ResinCard({ src, aspect, flat, frost = false, class: cls = "", children }: { src: string; aspect: number; flat: any; frost?: boolean; class?: string; children?: any }) {
-  const [ref, ready] = usePiece((el, shown) => resinCardPiece(el, src, aspect, frost, shown), [src, aspect, frost]);
+  const [ref, drawn] = usePiece((el, shown) => resinCardPiece(el, src, aspect, frost, shown), [src, aspect, frost]);
+  // Arriving from another screen: the 3D card flies in, so don't flash the flat photo first.
+  const [flying] = useState(() => typeof performance !== "undefined" && flightWaiting(src));
+  const ready = drawn || flying;
   return (
     <div ref={ref as any} class={`resin ${ready ? "ready" : ""} ${cls}`} style={{ aspectRatio: String(aspect) }} data-component="ResinCard">
       <div class="resin-flat overflow-hidden" style={{ borderRadius: `10.5% / ${10.5 * aspect}%` }}>{flat}</div>
