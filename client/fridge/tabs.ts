@@ -1,7 +1,6 @@
 // The magnet tab bar's engine: the tab words as live 3D letter magnets that follow a position `p`
-// (0 = first tab, 1 = second… fractional while you swipe). Each letter rides its own spring: leaders
-// are stiff and followers lag, so the letters march; they lift off the door while moving, tip with the
-// drag, hop a little each step and wobble as they settle. The selected tab is full size, the others shrink.
+// (0 = first tab, 1 = second… fractional while you swipe). Each letter is a little physical body with its
+// own randomly rolled stiffness, weight and wobble, chained to its neighbours (see step()). The selected tab is full size, the others shrink.
 // On phones the row slides so the selected tab sits at the left; on desktop the row stays put.
 import { magnetWord, pxScene, type Letter } from "./kit";
 import { splashAnimating } from "./splash";
@@ -123,37 +122,90 @@ export class TabsEngine {
     else this.running = false;
   };
 
+  // Each letter is its own little body: its own stiffness, damping, weight and wobble, rolled fresh each
+  // time the bar is made, so no two letters (and no two visits) move the same way.
+  private body = new Map<Letter, { k: number; damp: number; rk: number; rdamp: number; kick: number; lift: number; freq: number; phase: number; pvx: number }>();
+  private bodyOf(l: Letter) {
+    let b = this.body.get(l);
+    if (!b) {
+      const r = (a: number, z: number) => a + Math.random() * (z - a);
+      b = { k: r(70, 200), damp: r(0.3, 0.7), rk: r(160, 360), rdamp: r(0.12, 0.32), kick: r(0.6, 1.5), lift: r(0.6, 1.4), freq: r(9, 17), phase: r(0, 6.28), pvx: 0 };
+      this.body.set(l, b);
+    }
+    return b;
+  }
+
+  /**
+   * Physics, not a script: every letter is pulled toward its place by its own spring, tied to the letter
+   * before it in its word (so a tug travels down the word like a chain), bumps its neighbours instead of
+   * passing through them, tips from its own speed and acceleration, lifts off the door while it moves,
+   * and now and then gets jostled into a little hop.
+   */
   private step(dt: number) {
     if (!this.words.length) return false;
     const { H } = this.o;
     this.time += dt;
     const L = this.layout(this.p);
     this.ranges = L.map((l) => [l.x - 10, l.x + l.w + 10]);
-    const spacing = this.o.fixed ? 260 : 190;
-    const sv = -this.pv * spacing, mag = Math.min(1, Math.abs(sv) / 900);
     let moving = false;
-    for (const [i, l] of this.all.entries()) {
-      const wd = L[l.word];
-      const tx = wd.x + l.cx * wd.s, ts = wd.s;
-      const ty = H / 2 + l.dy * wd.s - Math.abs(Math.sin(this.time * 15 + i * 0.85)) * 8 * mag * wd.s; // a hop each step
-      const tz = 16 * mag; // pulled off the door while moving
-      const tr = l.tilt - clamp(sv * 0.00045, -0.45, 0.45) * (0.7 + 0.6 * l.rnd); // tip with the drag
-      const lead = sv < 0 ? 1 - l.u : l.u, k = 120 + 180 * lead, c = 2 * Math.sqrt(k) * 0.5; // leaders stiff, followers lag
-      if (reduced()) { Object.assign(l, { x: tx, y: H / 2 + l.dy * wd.s, s: ts, z: 0, r: l.tilt, vx: 0, vy: 0, vs: 0, vz: 0, vr: 0 }); l.mesh.position.set(l.x, -l.y, 0); l.mesh.rotation.z = l.r; l.mesh.scale.setScalar(l.base * ts); continue; }
-      const n = 3, h = dt / n;
-      for (let q = 0; q < n; q++) {
-        l.vx += (k * (tx - l.x) - c * l.vx) * h; l.x += l.vx * h;
-        l.vy += (k * (ty - l.y) - c * l.vy) * h; l.y += l.vy * h;
-        l.vs += (k * (ts - l.s) - c * l.vs) * h; l.s += l.vs * h;
-        l.vz += (220 * (tz - l.z) - 2 * Math.sqrt(220) * 0.7 * l.vz) * h; l.z += l.vz * h;
-        l.vr += (300 * (tr - l.r) - 2 * Math.sqrt(300) * 0.28 * l.vr) * h; l.r += l.vr * h; // underdamped: wobbles as it settles
+    const n = 3, h = dt / n;
+    let before: Letter | null = null, beforeTx = 0; // the previous letter in the whole row, for bumping
+    for (const w of this.words) {
+      const wd = L[this.words.indexOf(w)];
+      let prev: Letter | null = null;
+      for (const l of w.letters) {
+        const b = this.bodyOf(l);
+        const tx = wd.x + l.cx * wd.s, ty = H / 2 + l.dy * wd.s, ts = wd.s;
+        if (reduced()) { Object.assign(l, { x: tx, y: ty, s: ts, z: 0, r: l.tilt, vx: 0, vy: 0, vs: 0, vz: 0, vr: 0 }); l.mesh.position.set(l.x, -l.y, 0); l.mesh.rotation.z = l.r; l.mesh.scale.setScalar(l.base * ts); prev = before = l; beforeTx = tx; continue; }
+        const speed = Math.abs(l.vx);
+        const c = 2 * Math.sqrt(b.k) * b.damp;
+        for (let q = 0; q < n; q++) {
+          // pulled home, and dragged along by the letter before it
+          let fx = b.k * (tx - l.x) - c * l.vx;
+          if (prev) {
+            const gap = (l.cx - prev.cx) * wd.s;
+            fx += 55 * (prev.x + gap - l.x);
+          }
+          l.vx += fx * h;
+          l.x += l.vx * h;
+          // height: home, plus a hop when jostled (springy, so it bounces back down)
+          l.vy += (160 * (ty - l.y) - 2 * Math.sqrt(160) * 0.25 * l.vy) * h;
+          l.y += l.vy * h;
+          l.vs += (b.k * 1.4 * (ts - l.s) - 2 * Math.sqrt(b.k * 1.4) * 0.6 * l.vs) * h;
+          l.s += l.vs * h;
+        }
+        // bump the letter before it in the row (in its own word or the word before), never pass through it
+        if (before) {
+          const minGap = (tx - beforeTx) * 0.95;
+          const overlap = before.x + minGap - l.x;
+          if (overlap > 0) {
+            l.x += overlap * 0.6; before.x -= overlap * 0.4;
+            const dv = (before.vx - l.vx) * 0.5;
+            l.vx += dv; before.vx -= dv;
+          }
+        }
+        // jostle: the faster it's going, the likelier a small random hop
+        if (speed > 160 && Math.random() < dt * (speed / 400) * b.kick) l.vy -= (40 + Math.random() * 90) * wd.s * b.kick;
+        // tip from its own speed and its own acceleration, plus a loose wobble while moving
+        const acc = (l.vx - b.pvx) / Math.max(dt, 0.001);
+        b.pvx = l.vx;
+        const tr = l.tilt + clamp(-l.vx * 0.00035 * b.kick - acc * 0.000025 * b.kick, -0.32, 0.32) + Math.sin(this.time * b.freq + b.phase) * Math.min(0.07, speed * 0.00015);
+        l.vr += (b.rk * (tr - l.r) - 2 * Math.sqrt(b.rk) * b.rdamp * l.vr) * dt;
+        l.r += l.vr * dt;
+        // lifted off the door while moving
+        const tz = Math.min(24, (speed / 45) * b.lift);
+        l.vz += (220 * (tz - l.z) - 2 * Math.sqrt(220) * 0.6 * l.vz) * dt;
+        l.z += l.vz * dt;
+        l.mesh.position.set(l.x, -l.y, Math.max(0, l.z));
+        l.mesh.rotation.z = l.r;
+        l.mesh.scale.setScalar(l.base * Math.max(0.001, l.s));
+        if (speed + Math.abs(l.vy) + Math.abs(l.vr) * 40 + Math.abs(l.vs) * 40 + Math.abs(l.vz) > 1.5 || Math.abs(tx - l.x) > 0.4 || Math.abs(ty - l.y) > 0.4 || Math.abs(l.tilt - l.r) > 0.004) moving = true;
+        prev = l;
+        before = l;
+        beforeTx = tx;
       }
-      l.mesh.position.set(l.x, -l.y, l.z);
-      l.mesh.rotation.z = l.r;
-      l.mesh.scale.setScalar(l.base * Math.max(0.001, l.s));
-      if (Math.abs(l.vx) + Math.abs(l.vr) * 40 + Math.abs(l.vs) * 40 + Math.abs(l.vz) > 1.5 || Math.abs(tx - l.x) > 0.4 || Math.abs(tr - l.r) > 0.004) moving = true;
     }
     this.S.render();
-    return moving || mag > 0.01;
+    return moving || this.dragging;
   }
 }

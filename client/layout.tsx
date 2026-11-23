@@ -85,6 +85,9 @@ export const photoSrc = (id: string, w: number) => (isUrl(id) ? id : photo(id, w
 
 // Warm food-ish tints for meals without a photo, picked by name so a meal keeps its colour.
 const TINTS = ["bg-[#f3e2cf] text-[#5a3a1c]", "bg-[#e5ecd9] text-[#33421f]", "bg-[#f4d9d2] text-[#5e2a1f]", "bg-[#e9e1f0] text-[#3d2c52]", "bg-[#f6ead0] text-[#574413]", "bg-[#dcebe8] text-[#1f4540]"];
+/** The tint's background colour as a hex, for a resin print with no photo. */
+export const tintHex = (title: string) => tintFor(title).match(/bg-\[(#[0-9a-f]{6})\]/i)?.[1] ?? "#f3e2cf";
+
 export function tintFor(title: string) {
   let h = 0;
   for (const c of title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -504,8 +507,6 @@ export function useMedia(q: string) {
   return on;
 }
 
-/** A plain magnet tile (no photo): the meal's tint, rounded like a resin card, sitting on the door. */
-const tileShadow = "shadow-[0_1px_1px_rgba(0,0,0,.08),0_3px_8px_rgba(0,0,0,.10)]";
 
 /**
  * A meal shown big, as a resin magnet on the door: its photo sealed under resin, with its name, a line
@@ -566,10 +567,11 @@ export function PhotoHero({
         {overlay}
       </ResinCard>
     );
+  // No photo yet: the same resin magnet over a plain print in the meal's tint, words in ink.
   return (
-    <section class={`relative overflow-hidden rounded-[28px] ${tileShadow} ${tintFor(title)}`} style={{ aspectRatio: String(aspect) }} data-component="PhotoHero">
+    <ResinCard src={`color:${tintHex(title)}`} aspect={aspect} flat={<div class={`h-full w-full ${tintFor(title)}`} />}>
       {overlay}
-    </section>
+    </ResinCard>
   );
 }
 

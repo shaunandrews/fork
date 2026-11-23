@@ -35,7 +35,7 @@ import { Textarea as UITextarea } from "./components/ui/textarea";
 import { Toggle } from "./components/ui/toggle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "./components/ui/drawer";
-import { MealImage, caption, displayMd, photoSrc, tintFor } from "./layout";
+import { MealImage, caption, displayMd, photoSrc, tintFor, tintHex } from "./layout";
 import { ResinCard, ResinDome } from "./fridge/ui";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -178,9 +178,12 @@ export function Thumb({ title, photo, size = "md" }: { title: string; photo?: st
         <ResinDome src={photoSrc(photo, 256)} size={px} flat={<MealImage id={photo} title={title} sizes={`${px}px`} widths={[128]} class={`${box} block`} />} />
       </span>
     );
+  // No photo yet: a round resin magnet over the meal's tint, its initial on it.
   return (
-    <span data-component="Thumb" class={`flex shrink-0 items-center justify-center rounded-full font-bold ${box} ${tintFor(title)}`} aria-hidden="true">
-      {title.trim()[0]?.toUpperCase() ?? "?"}
+    <span data-component="Thumb" class="shrink-0" aria-hidden="true">
+      <ResinDome src={`color:${tintHex(title)}`} size={px} flat={<span class={`block ${box} rounded-full ${tintFor(title)}`} />}>
+        <span class={`pointer-events-none absolute inset-0 flex items-center justify-center font-bold ${size === "lg" ? "text-[24px]" : "text-[22px]"} ${tintFor(title).split(" ").find((c) => c.startsWith("text-")) ?? ""}`}>{title.trim()[0]?.toUpperCase() ?? "?"}</span>
+      </ResinDome>
     </span>
   );
 }
@@ -297,10 +300,11 @@ export function MealTile({
           {tag ? <span class="absolute left-[9%] top-[9%]"><Tag>{tag}</Tag></span> : null}
         </ResinCard>
       ) : (
-        <div class="relative">
-          <MealImage id={null} title={title} sizes="(min-width: 1024px) 270px, 50vw" widths={[400, 600]} class="aspect-[4/3] w-full rounded-[16px] shadow-[0_1px_1px_rgba(0,0,0,.08),0_3px_8px_rgba(0,0,0,.10)] transition-transform group-hover:-translate-y-0.5" />
-          {tag ? <span class="absolute left-3 top-3"><Tag>{tag}</Tag></span> : null}
-        </div>
+        // No photo yet: a resin magnet over the meal's tint, with its name on it.
+        <ResinCard src={`color:${tintHex(title)}`} aspect={4 / 3} class="transition-transform group-hover:-translate-y-0.5" flat={<div class={`h-full w-full ${tintFor(title)}`} />}>
+          <span class={`pointer-events-none absolute inset-x-[10%] bottom-[11%] text-[20px] font-bold leading-[1.1] tracking-[-0.03em] md:text-[22px] ${tintFor(title).split(" ").find((c) => c.startsWith("text-")) ?? ""}`}>{title}</span>
+          {tag ? <span class="absolute left-[9%] top-[9%]"><Tag>{tag}</Tag></span> : null}
+        </ResinCard>
       )}
       {eyebrow ? <p class={cx("mt-3", caption)}>{eyebrow}</p> : null}
       {showTitle && photo ? <p class={cx(eyebrow ? "mt-0.5" : "mt-3", "text-[17px] font-semibold leading-snug md:text-[20px]")}>{title}</p> : null}

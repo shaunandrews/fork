@@ -235,8 +235,20 @@ function domeGeometry() {
 const loader = new THREE.TextureLoader();
 loader.setCrossOrigin("anonymous");
 const textures = new Map<string, Promise<THREE.Texture>>();
+/** A photo's texture, or for `color:#rrggbb` a plain print of that colour (a meal with no photo yet). */
 function photoTexture(url: string) {
   let t = textures.get(url);
+  if (!t && url.startsWith("color:")) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 8;
+    const x = c.getContext("2d")!;
+    x.fillStyle = url.slice(6);
+    x.fillRect(0, 0, 8, 8);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    t = Promise.resolve(tex);
+    textures.set(url, t);
+  }
   if (!t) {
     t = loader.loadAsync(url).then((tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;

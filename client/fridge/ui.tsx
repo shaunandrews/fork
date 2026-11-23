@@ -182,11 +182,12 @@ export function ResinCard({ src, aspect, flat, frost = false, class: cls = "", c
 }
 
 /** A photo as a round resin magnet, `size` px across. */
-export function ResinDome({ src, size, flat }: { src: string; size: number; flat: any }) {
+export function ResinDome({ src, size, flat, children }: { src: string; size: number; flat: any; children?: any }) {
   const [ref, ready] = usePiece((el, shown) => resinDomePiece(el, src, shown), [src]);
   return (
     <span ref={ref as any} class={`resin block shrink-0 ${ready ? "ready" : ""}`} style={{ width: `${size}px`, height: `${size}px` }} data-component="ResinDome">
       <span class="resin-flat block overflow-hidden rounded-full">{flat}</span>
+      {children}
     </span>
   );
 }
